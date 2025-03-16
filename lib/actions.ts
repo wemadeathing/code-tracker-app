@@ -208,6 +208,18 @@ export async function getActivities() {
     const parent = activity.course || activity.project
     const parent_type = activity.course ? 'course' : 'project'
     
+    // Ensure we always have a color, even if parent is missing
+    let parent_color = "purple"; // Default color
+    
+    // For course parents
+    if (activity.course && activity.course.color) {
+      parent_color = activity.course.color;
+    }
+    // For project parents
+    else if (activity.project && activity.project.color) {
+      parent_color = activity.project.color;
+    }
+    
     return {
       id: activity.id,
       title: activity.title,
@@ -215,7 +227,7 @@ export async function getActivities() {
       parent_type,
       parent_id: parent?.id || 0,
       parent_title: parent?.title || "",
-      parent_color: parent?.color || "gray",
+      parent_color: parent_color,
       total_time: formatTimeFromSeconds(total_seconds),
       total_seconds,
       sessions: activity.sessions.map((session: any) => ({
@@ -241,6 +253,25 @@ export async function addActivity({
 }) {
   const user_id = await getUserId()
   
+  // First, fetch the parent to get its color
+  let parentColor = "purple"; // Default color
+  
+  if (parent_type === 'course') {
+    const course = await typedDb.course.findUnique({
+      where: { id: parent_id }
+    });
+    if (course) {
+      parentColor = course.color;
+    }
+  } else {
+    const project = await typedDb.project.findUnique({
+      where: { id: parent_id }
+    });
+    if (project) {
+      parentColor = project.color;
+    }
+  }
+  
   const data: {
     title: string;
     description?: string;
@@ -259,7 +290,11 @@ export async function addActivity({
     data.project_id = parent_id
   }
   
+  // Create activity
   const activity = await typedDb.activity.create({ data })
+  
+  // Now update the activity color with a raw query since Prisma doesn't recognize the color field yet
+  await db.$executeRaw`UPDATE activity SET color = ${parentColor} WHERE id = ${activity.id}`;
   
   revalidatePath('/dashboard/courses')
   revalidatePath('/dashboard/projects')
