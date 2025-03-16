@@ -17,9 +17,27 @@ import {
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { FaTasks } from 'react-icons/fa'
+import { useTimer } from '@/contexts/timer-context'
+import { Badge } from '@/components/ui/badge'
+
+// Helper function to format seconds to HH:MM:SS or MM:SS
+const formatTime = (seconds: number): string => {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  
+  return [
+    hours > 0 ? String(hours).padStart(2, '0') : null,
+    String(minutes).padStart(2, '0'),
+    String(secs).padStart(2, '0')
+  ]
+    .filter(Boolean)
+    .join(':')
+}
 
 export default function DashboardSideBar() {
   const pathname = usePathname();
+  const { isRunning, seconds } = useTimer();
 
   return (
     <div className="lg:block hidden border-r h-full">
@@ -28,6 +46,13 @@ export default function DashboardSideBar() {
           <Link className="flex items-center gap-2 font-semibold ml-1" href="/">
             <span className="">CodeTracker</span>
           </Link>
+          {isRunning && (
+            <div className="flex items-center">
+              <div className="animate-pulse-subtle bg-primary/20 border border-primary rounded-full w-3 h-3 mr-2">
+                <span className="sr-only">Timer is running</span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-auto py-2 ">
           <nav className="grid items-start px-4 text-sm font-medium">
@@ -50,10 +75,19 @@ export default function DashboardSideBar() {
               })}
               href="/dashboard/timer"
             >
-              <div className="border rounded-lg dark:bg-black dark:border-gray-800 border-gray-400 p-1 bg-white">
-                <Timer className="h-3 w-3" />
+              <div className={clsx("border rounded-lg dark:bg-black dark:border-gray-800 border-gray-400 p-1 bg-white", {
+                "border-primary bg-primary/10 text-primary animate-pulse-subtle": isRunning
+              })}>
+                <Timer className={clsx("h-3 w-3", { "text-primary": isRunning })} />
               </div>
-              Timer
+              <span className="flex items-center gap-2">
+                Timer
+                {isRunning && (
+                  <Badge variant="outline" className="ml-1 bg-primary/10 text-primary border-primary animate-pulse-subtle">
+                    {formatTime(seconds)}
+                  </Badge>
+                )}
+              </span>
             </Link>
             
             <Separator className="my-2" />

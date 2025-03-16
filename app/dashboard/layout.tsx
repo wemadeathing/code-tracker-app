@@ -5,6 +5,7 @@ import { isAuthorized } from "@/utils/data/user/isAuthorized"
 import { redirect } from "next/navigation"
 import { currentUser } from "@clerk/nextjs/server"
 import { initUser } from "@/lib/init-user"
+import { TimerProvider } from "@/contexts/timer-context"
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await currentUser()
@@ -22,13 +23,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
   
   return (
-    <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
-      <DashboardSideBar />
-      <DashboardTopNav >
-        <main className="flex flex-col gap-4 p-4 lg:gap-6">
-          {children}
-        </main>
-      </DashboardTopNav>
-    </div>
+    <TimerProvider>
+      <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
+        <DashboardSideBar />
+        <DashboardTopNav >
+          <main className="flex flex-col gap-4 p-4 lg:gap-6">
+            {children}
+          </main>
+        </DashboardTopNav>
+      </div>
+    </TimerProvider>
   )
 }

@@ -228,6 +228,7 @@ export async function getActivities() {
       parent_id: parent?.id || 0,
       parent_title: parent?.title || "",
       parent_color: parent_color,
+      color: activity.color || parent_color, // Use activity's own color if available, otherwise fallback to parent's color
       total_time: formatTimeFromSeconds(total_seconds),
       total_seconds,
       sessions: activity.sessions.map((session: any) => ({

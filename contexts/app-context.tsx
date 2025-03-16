@@ -43,6 +43,7 @@ export type ActivityType = {
   parentId: number
   parentTitle: string
   parentColor: string
+  color?: string
   totalTime?: string
   totalSeconds?: number
   sessions?: Array<{

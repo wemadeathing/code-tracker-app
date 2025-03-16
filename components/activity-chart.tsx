@@ -37,12 +37,12 @@ export function ActivityChart({ period, onPeriodChange }: ActivityChartProps) {
   // Extract all sessions from activities - using useMemo to prevent recalculation
   const allSessions = useMemo(() => {
     return activities.flatMap(activity => 
-      activity.sessions.map(session => ({
+      activity.sessions?.map(session => ({
         ...session,
         activityId: activity.id,
         activityTitle: activity.title,
-        activityColor: activity.parentColor
-      }))
+        activityColor: activity.color || activity.parentColor // Use color or fallback to parentColor
+      })) || []
     )
   }, [activities])
   
@@ -51,7 +51,7 @@ export function ActivityChart({ period, onPeriodChange }: ActivityChartProps) {
     return activities.map(activity => ({
       id: activity.id.toString(),
       title: activity.title,
-      color: activity.parentColor
+      color: activity.color || activity.parentColor // Use color or fallback to parentColor
     }))
   }, [activities])
   
@@ -163,7 +163,10 @@ export function ActivityChart({ period, onPeriodChange }: ActivityChartProps) {
     return (activityName: string) => {
       const activity = activities.find(a => a.title === activityName)
       if (!activity) return '#8884d8' // Default color
-      return colorMap[activity.parentColor] || '#8884d8'
+      
+      // Use activity's color first, then parentColor as fallback
+      const colorKey = activity.color || activity.parentColor
+      return colorMap[colorKey] || '#8884d8'
     }
   }, [activities])
   
