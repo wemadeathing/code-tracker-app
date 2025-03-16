@@ -8,7 +8,15 @@ import { SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/component
 import { UserProfile } from '@/components/user-profile'
 import config from '@/config'
 import { HamburgerMenuIcon } from '@radix-ui/react-icons'
-import { Banknote, Folder, HomeIcon, Settings } from 'lucide-react'
+import { 
+  Folder, 
+  HomeIcon, 
+  Settings, 
+  Clock, 
+  Timer, 
+  GraduationCap, 
+  LayoutList 
+} from 'lucide-react'
 import Link from 'next/link'
 import { ReactNode } from 'react'
 
@@ -34,10 +42,32 @@ export default function DashboardTopNav({ children }: { children: ReactNode }) {
                 <Link href="/dashboard">
                   <Button variant="outline" className="w-full">
                     <HomeIcon className="mr-2 h-4 w-4" />
-                    Home
+                    Dashboard
                   </Button>
                 </Link>
               </DialogClose>
+              
+              <DialogClose asChild>
+                <Link href="/dashboard/timer">
+                  <Button variant="outline" className="w-full">
+                    <Timer className="mr-2 h-4 w-4" />
+                    Timer
+                  </Button>
+                </Link>
+              </DialogClose>
+              
+              <Separator className="my-2" />
+              <p className="text-xs text-muted-foreground px-2">Tracking</p>
+              
+              <DialogClose asChild>
+                <Link href="/dashboard/courses">
+                  <Button variant="outline" className="w-full">
+                    <GraduationCap className="mr-2 h-4 w-4" />
+                    Courses
+                  </Button>
+                </Link>
+              </DialogClose>
+              
               <DialogClose asChild>
                 <Link href="/dashboard/projects">
                   <Button variant="outline" className="w-full">
@@ -46,15 +76,29 @@ export default function DashboardTopNav({ children }: { children: ReactNode }) {
                   </Button>
                 </Link>
               </DialogClose>
+              
               <DialogClose asChild>
-                <Link href="/dashboard/finance">
+                <Link href="/dashboard/activities">
                   <Button variant="outline" className="w-full">
-                    <Banknote className="mr-2 h-4 w-4" />
-                    Finance
+                    <LayoutList className="mr-2 h-4 w-4" />
+                    Activities
                   </Button>
                 </Link>
               </DialogClose>
-              <Separator className="my-3" />
+              
+              <Separator className="my-2" />
+              <p className="text-xs text-muted-foreground px-2">History</p>
+              
+              <DialogClose asChild>
+                <Link href="/dashboard/sessions">
+                  <Button variant="outline" className="w-full">
+                    <Clock className="mr-2 h-4 w-4" />
+                    Sessions
+                  </Button>
+                </Link>
+              </DialogClose>
+              
+              <Separator className="my-2" />
               <DialogClose asChild>
                 <Link href="/dashboard/settings">
                   <Button variant="outline" className="w-full">

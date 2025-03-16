@@ -116,7 +116,6 @@ export default function Timer() {
   return (
     <div className='flex flex-col justify-center items-center w-full px-4 pt-8 gap-6'>
       <div className="w-full max-w-3xl">
-        <h1 className="text-3xl font-bold mb-8 text-center">Timer</h1>
         
         <Card className="mb-6">
           <CardContent className="py-6">

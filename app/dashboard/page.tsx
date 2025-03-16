@@ -125,14 +125,6 @@ export default function Dashboard() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>Activity Type</Label>
-                  <div className="flex gap-4">
-                    <Button variant="outline" className="flex-1 bg-background">Courses</Button>
-                    <Button variant="outline" className="flex-1">Projects</Button>
-                  </div>
-                </div>
-                
-                <div className="grid gap-2">
                   <Label htmlFor="activity">Activity</Label>
                   <Select>
                     <SelectTrigger id="activity">
@@ -191,53 +183,61 @@ export default function Dashboard() {
       
       <div className="flex flex-wrap w-full gap-4 mt-2">
         {/* Stats Cards */}
-        <Card className="flex-1 min-w-[200px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Today</CardTitle>
+            <div className="rounded-full bg-primary/10 p-2">
+              <Clock className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatTimeFromSeconds(stats.today)}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="px-5 pt-2 pb-4">
+            <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.today)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
               Coded Today
             </p>
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-[200px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Week</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
+            <div className="rounded-full bg-primary/10 p-2">
+              <Calendar className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatTimeFromSeconds(stats.week)}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="px-5 pt-2 pb-4">
+            <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.week)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
               Coded This Week
             </p>
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-[200px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
+            <div className="rounded-full bg-primary/10 p-2">
+              <Calendar className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatTimeFromSeconds(stats.month)}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="px-5 pt-2 pb-4">
+            <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.month)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
               Coded This Month
             </p>
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-[200px]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
-            <Flame className="h-4 w-4 text-muted-foreground" />
+        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Current Streak</CardTitle>
+            <div className="rounded-full bg-primary/10 p-2">
+              <Flame className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.streak} days</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="px-5 pt-2 pb-4">
+            <div className="text-3xl font-bold tracking-tight">{stats.streak} days</div>
+            <p className="text-xs text-muted-foreground mt-1">
               Consecutive days coding
             </p>
           </CardContent>
