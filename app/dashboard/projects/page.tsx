@@ -220,7 +220,7 @@ export default function ProjectsPage() {
           {filteredProjects.map((project) => {
             const stats = getProjectStats(project.id);
             return (
-              <Card key={project.id} className="overflow-hidden">
+              <Card key={project.id} className="overflow-hidden flex flex-col h-[320px]">
                 <div 
                   className="w-full h-2" 
                   style={{ backgroundColor: `hsl(var(--${project.color}))` }}
@@ -253,8 +253,8 @@ export default function ProjectsPage() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                <CardContent className="flex-grow">
+                  <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
                     {project.description}
                   </p>
                 </CardContent>

@@ -404,10 +404,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     // This function is a placeholder - the actual timer implementation
     // happens in the TimerDialog component
     console.log(`Starting timer for activity ${activityId}`)
+    
+    // We could implement additional functionality here if needed,
+    // such as tracking currently active timers or updating UI state
   }
 
   const addTimeToActivity = (activityId: number, seconds: number, notes: string) => {
-    setActivities(activities.map(activity => {
+    // Validate inputs
+    if (seconds <= 0) {
+      console.error('Cannot add zero or negative time to activity')
+      return
+    }
+    
+    if (!notes) {
+      notes = 'No notes provided'
+    }
+    
+    setActivities(prevActivities => prevActivities.map(activity => {
       if (activity.id === activityId) {
         const newSession = {
           duration: seconds,
@@ -429,7 +442,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const deleteSessionFromActivity = (activityId: number, sessionIndex: number) => {
-    setActivities(activities.map(activity => {
+    setActivities(prevActivities => prevActivities.map(activity => {
       if (activity.id === activityId) {
         // Get the session to be deleted
         const sessionToDelete = activity.sessions[sessionIndex]

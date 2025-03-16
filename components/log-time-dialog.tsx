@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,16 @@ export function LogTimeDialog({ isOpen, onClose, activity, onSaveTime }: LogTime
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
 
+  // Reset form when dialog opens with a different activity
+  useEffect(() => {
+    if (isOpen) {
+      setHours('0')
+      setMinutes('0')
+      setNotes('')
+      setError('')
+    }
+  }, [isOpen, activity.id])
+
   const handleSave = () => {
     // Validate inputs
     const hoursNum = parseInt(hours, 10) || 0
@@ -31,21 +41,36 @@ export function LogTimeDialog({ isOpen, onClose, activity, onSaveTime }: LogTime
       return
     }
 
+    if (hoursNum < 0 || minutesNum < 0 || minutesNum > 59) {
+      setError('Please enter valid hours and minutes (0-59)')
+      return
+    }
+
     // Calculate total seconds
     const totalSeconds = (hoursNum * 60 * 60) + (minutesNum * 60)
     
     // Call the onSaveTime callback
     onSaveTime(totalSeconds, notes)
     
-    // Reset form
+    // Reset form and close dialog
+    resetForm()
+    onClose()
+  }
+
+  const resetForm = () => {
     setHours('0')
     setMinutes('0')
     setNotes('')
     setError('')
   }
 
+  const handleClose = () => {
+    resetForm()
+    onClose()
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Log Time for {activity.title}</DialogTitle>
@@ -103,7 +128,7 @@ export function LogTimeDialog({ isOpen, onClose, activity, onSaveTime }: LogTime
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSave}>Save</Button>
         </DialogFooter>
       </DialogContent>

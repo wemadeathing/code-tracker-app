@@ -29,13 +29,21 @@ export function Timer({ initialSeconds = 0, onUpdate, className }: TimerProps) {
   const [seconds, setSeconds] = useState(initialSeconds)
   const [isRunning, setIsRunning] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Use ref to keep track of latest onUpdate callback to avoid stale closures
+  const onUpdateRef = useRef(onUpdate)
+  
+  // Update ref when onUpdate changes
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
 
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
         setSeconds(prevSeconds => {
           const newSeconds = prevSeconds + 1
-          if (onUpdate) onUpdate(newSeconds)
+          if (onUpdateRef.current) onUpdateRef.current(newSeconds)
           return newSeconds
         })
       }, 1000)
@@ -48,7 +56,7 @@ export function Timer({ initialSeconds = 0, onUpdate, className }: TimerProps) {
         clearInterval(intervalRef.current)
       }
     }
-  }, [isRunning, onUpdate])
+  }, [isRunning])
 
   const toggleTimer = () => {
     setIsRunning(!isRunning)
@@ -57,7 +65,7 @@ export function Timer({ initialSeconds = 0, onUpdate, className }: TimerProps) {
   const resetTimer = () => {
     setIsRunning(false)
     setSeconds(0)
-    if (onUpdate) onUpdate(0)
+    if (onUpdateRef.current) onUpdateRef.current(0)
   }
 
   return (

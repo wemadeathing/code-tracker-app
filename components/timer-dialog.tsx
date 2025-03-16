@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,7 +20,20 @@ export function TimerDialog({ isOpen, onClose, activity, onSaveTime }: TimerDial
   const [notes, setNotes] = useState('')
   const [isCompleted, setIsCompleted] = useState(false)
 
+  // Reset dialog state when opened with a new activity
+  useEffect(() => {
+    if (isOpen) {
+      resetDialog()
+    }
+  }, [isOpen, activity.id])
+
   const handleSave = () => {
+    // Don't save if no time has been tracked
+    if (seconds === 0) {
+      handleClose()
+      return
+    }
+    
     onSaveTime(seconds, notes)
     resetDialog()
     onClose()
@@ -33,12 +46,20 @@ export function TimerDialog({ isOpen, onClose, activity, onSaveTime }: TimerDial
   }
 
   const handleClose = () => {
-    resetDialog()
-    onClose()
+    // Show confirmation if timer is running and has time
+    if (!isCompleted && seconds > 0) {
+      if (window.confirm('You have unsaved time. Are you sure you want to close?')) {
+        resetDialog()
+        onClose()
+      }
+    } else {
+      resetDialog()
+      onClose()
+    }
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
@@ -81,13 +102,17 @@ export function TimerDialog({ isOpen, onClose, activity, onSaveTime }: TimerDial
         
         <DialogFooter>
           {isCompleted ? (
-            <Button onClick={handleSave}>
-              Save
-            </Button>
+            <div className="flex w-full gap-2 justify-end">
+              <Button variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button onClick={handleSave}>
+                Save
+              </Button>
+            </div>
           ) : (
             <Button 
               onClick={() => setIsCompleted(true)}
               className="w-full"
+              disabled={seconds === 0}
             >
               Complete Session
             </Button>

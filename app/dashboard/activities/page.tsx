@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -42,7 +42,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden flex flex-col h-[320px]">
       <div 
         className="w-full h-2" 
         style={{ backgroundColor: `hsl(var(--${activity.parentColor}))` }}
@@ -76,9 +76,9 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-grow">
         <div className="mb-4">
-          <p className="text-sm text-muted-foreground line-clamp-2">
+          <p className="text-sm text-muted-foreground line-clamp-3">
             {activity.description}
           </p>
         </div>
@@ -156,6 +156,7 @@ export default function ActivitiesPage() {
     // Check if we should open the add activity dialog with a pre-selected parent
     const newParam = searchParams.get('new')
     const parentParam = searchParams.get('parent')
+    const parentTypeParam = searchParams.get('parentType')
     
     if (newParam === '1' && parentParam) {
       setIsAddActivityOpen(true)
@@ -173,6 +174,13 @@ export default function ActivitiesPage() {
         setActiveTab(parentParam)
       }
     }
+
+    // Log for debugging
+    console.log('URL Params:', { 
+      parentParam, 
+      parentTypeParam, 
+      activeTab: parentParam || 'all' 
+    })
   }, [searchParams])
 
   // Combine courses and projects for the parent selector
@@ -414,71 +422,139 @@ export default function ActivitiesPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="courses">Courses</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          {/* Removed individual course/project tabs to reduce cognitive overload */}
-        </TabsList>
-
-        <TabsContent value="all">
-          {/* Content for the All tab */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredActivities.map((activity) => (
-              <ActivityCard 
-                key={activity.id} 
-                activity={activity} 
-                onStartTimer={handleStartTimer}
-                onLogPastTime={handleLogPastTime}
-                onViewSessions={navigateToSessions}
-                onDelete={handleDeleteActivity}
-              />
-            ))}
+      <div className="mb-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              variant={activeTab === 'all' ? "default" : "outline"} 
+              size="sm"
+              onClick={() => setActiveTab('all')}
+              className="rounded-full"
+            >
+              All
+            </Button>
+            <Button 
+              variant={activeTab === 'courses' ? "default" : "outline"} 
+              size="sm"
+              onClick={() => setActiveTab('courses')}
+              className="rounded-full"
+            >
+              Courses
+            </Button>
+            <Button 
+              variant={activeTab === 'projects' ? "default" : "outline"} 
+              size="sm"
+              onClick={() => setActiveTab('projects')}
+              className="rounded-full"
+            >
+              Projects
+            </Button>
           </div>
-        </TabsContent>
-
-        {/* Content for other tabs */}
-        {['courses', 'projects'].map(tabId => (
-          <TabsContent key={tabId} value={tabId}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredActivities.map((activity) => (
-                <ActivityCard 
-                  key={activity.id} 
-                  activity={activity} 
-                  onStartTimer={handleStartTimer}
-                  onLogPastTime={handleLogPastTime}
-                  onViewSessions={navigateToSessions}
-                  onDelete={handleDeleteActivity}
-                />
-              ))}
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      {filteredActivities.length === 0 && (
-        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed h-[60vh]">
-          <div className="flex flex-col items-center text-center">
-            <h2 className="text-xl font-semibold mb-2">No activities found</h2>
-            {searchQuery ? (
-              <p className="text-sm text-muted-foreground mb-4">
-                No activities match your search criteria
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  You haven't created any activities yet
-                </p>
-                <Button onClick={() => setIsAddActivityOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Your First Activity
-                </Button>
-              </>
+          
+          {/* Parent filter dropdown - moved to the right */}
+          <div className="flex items-center gap-2">
+            <Select
+              value={activeTab.startsWith('course-') || activeTab.startsWith('project-') ? activeTab : ''}
+              onValueChange={(value) => {
+                if (value) setActiveTab(value);
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by item" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Courses</SelectLabel>
+                  {parentItems
+                    .filter(item => item.type === 'course')
+                    .map(item => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.title}
+                      </SelectItem>
+                    ))
+                  }
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Projects</SelectLabel>
+                  {parentItems
+                    .filter(item => item.type === 'project')
+                    .map(item => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.title}
+                      </SelectItem>
+                    ))
+                  }
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            
+            {/* Clear filter button - moved next to the dropdown */}
+            {activeTab !== 'all' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setActiveTab('all')}
+                className="rounded-full"
+              >
+                Clear Filter
+              </Button>
             )}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Activities grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredActivities.length > 0 ? (
+          filteredActivities.map((activity) => (
+            <ActivityCard 
+              key={activity.id} 
+              activity={activity} 
+              onStartTimer={handleStartTimer}
+              onLogPastTime={handleLogPastTime}
+              onViewSessions={navigateToSessions}
+              onDelete={handleDeleteActivity}
+            />
+          ))
+        ) : (
+          <div className="col-span-3 flex flex-1 items-center justify-center rounded-lg border border-dashed h-[60vh]">
+            <div className="flex flex-col items-center text-center">
+              <h2 className="text-xl font-semibold mb-2">No activities found</h2>
+              {searchQuery ? (
+                <p className="text-sm text-muted-foreground mb-4">
+                  No activities match your search criteria
+                </p>
+              ) : activeTab !== 'all' ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No activities in this category
+                  </p>
+                  <Button onClick={() => {
+                    // If it's a specific parent, pre-select it in the dialog
+                    if (activeTab.startsWith('course-') || activeTab.startsWith('project-')) {
+                      setNewActivityParent(activeTab);
+                    }
+                    setIsAddActivityOpen(true);
+                  }}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Activity
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    You haven't created any activities yet
+                  </p>
+                  <Button onClick={() => setIsAddActivityOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Your First Activity
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Timer Dialog */}
       {currentActivity && (

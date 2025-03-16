@@ -218,7 +218,7 @@ export default function CoursesPage() {
           {filteredCourses.map((course) => {
             const stats = getCourseStats(course.id)
             return (
-              <Card key={course.id} className="overflow-hidden">
+              <Card key={course.id} className="overflow-hidden flex flex-col h-[320px]">
                 <div 
                   className="w-full h-2" 
                   style={{ backgroundColor: `hsl(var(--${course.color}))` }}
@@ -251,8 +251,8 @@ export default function CoursesPage() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                <CardContent className="flex-grow">
+                  <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
                     {course.description}
                   </p>
                 </CardContent>
