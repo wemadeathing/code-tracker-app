@@ -9,11 +9,92 @@ datasource db {
 }
 
 model user {
-  id                Int      @id @default(autoincrement())
-  created_time      DateTime @default(now())
-  email             String   @unique
+  id                Int         @id @default(autoincrement())
+  created_time      DateTime    @default(now())
+  email             String      @unique
   first_name        String?
   last_name         String?
   profile_image_url String?
-  user_id           String   @unique // This is the Clerk user ID
+  user_id           String      @unique // This is the Clerk user ID
+  courses           course[]
+  projects          project[]
+  activities        activity[]
+  sessions          session[]
+  streaks           streak[]
+}
+
+model course {
+  id           Int        @id @default(autoincrement())
+  created_time DateTime   @default(now())
+  updated_time DateTime   @updatedAt
+  title        String
+  description  String?
+  color        String     @default("blue")
+  user         user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id      Int
+  activities   activity[]
+
+  @@index([user_id])
+}
+
+model project {
+  id           Int        @id @default(autoincrement())
+  created_time DateTime   @default(now())
+  updated_time DateTime   @updatedAt
+  title        String
+  description  String?
+  color        String     @default("green")
+  user         user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id      Int
+  activities   activity[]
+
+  @@index([user_id])
+}
+
+model activity {
+  id           Int       @id @default(autoincrement())
+  created_time DateTime  @default(now())
+  updated_time DateTime  @updatedAt
+  title        String
+  description  String?
+  // Parent can be either a course or a project
+  course       course?   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  course_id    Int?
+  project      project?  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project_id   Int?
+  user         user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id      Int
+  sessions     session[]
+
+  @@index([user_id])
+  @@index([course_id])
+  @@index([project_id])
+}
+
+model session {
+  id           Int      @id @default(autoincrement())
+  created_time DateTime @default(now())
+  updated_time DateTime @updatedAt
+  start_time   DateTime
+  duration     Int      // Duration in seconds
+  notes        String?
+  activity     activity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  activity_id  Int
+  user         user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id      Int
+
+  @@index([user_id])
+  @@index([activity_id])
+}
+
+model streak {
+  id           Int      @id @default(autoincrement())
+  created_time DateTime @default(now())
+  updated_time DateTime @updatedAt
+  date         DateTime @db.Date
+  user         user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id      Int
+
+  @@unique([user_id, date])
+  @@index([user_id])
 }

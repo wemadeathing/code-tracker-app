@@ -24,6 +24,8 @@ export default function middleware(req: any) {
       if (!resolvedAuth.userId && isProtectedRoute(req)) {
         return resolvedAuth.redirectToSignIn();
       } else {
+        // We'll trigger the user initialization in the layout component
+        // to avoid performance issues with server-side operation in middleware
         return NextResponse.next();
       }
     })(req);

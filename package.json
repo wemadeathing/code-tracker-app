@@ -6,7 +6,10 @@
     "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:setup": "chmod +x ./scripts/setup-db.sh && ./scripts/setup-db.sh",
+    "db:generate": "npx prisma generate",
+    "db:push": "npx prisma db push"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.0.2",
