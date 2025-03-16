@@ -1,6 +1,22 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { 
+  getCourses, 
+  addCourse as addCourseAction, 
+  updateCourse as updateCourseAction, 
+  deleteCourse as deleteCourseAction,
+  getProjects,
+  addProject as addProjectAction,
+  updateProject as updateProjectAction,
+  deleteProject as deleteProjectAction,
+  getActivities,
+  addActivity as addActivityAction,
+  updateActivity as updateActivityAction,
+  deleteActivity as deleteActivityAction,
+  addSession as addSessionAction,
+  deleteSession as deleteSessionAction
+} from '@/lib/actions'
 
 // Define our types
 export type CourseType = {
@@ -14,8 +30,8 @@ export type ProjectType = {
   id: number
   title: string
   description: string
-  totalActivities: number
-  totalTime: string
+  totalActivities?: number
+  totalTime?: string
   color: string
 }
 
@@ -27,9 +43,10 @@ export type ActivityType = {
   parentId: number
   parentTitle: string
   parentColor: string
-  totalTime: string
-  totalSeconds: number
-  sessions: Array<{
+  totalTime?: string
+  totalSeconds?: number
+  sessions?: Array<{
+    id?: number
     duration: number
     date: Date
     notes: string
@@ -39,67 +56,60 @@ export type ActivityType = {
 type AppContextType = {
   // Courses state and methods
   courses: CourseType[]
-  addCourse: (course: Omit<CourseType, 'id'>) => void
-  updateCourse: (id: number, course: Partial<CourseType>) => void
-  deleteCourse: (id: number) => void
+  addCourse: (course: Omit<CourseType, 'id'>) => Promise<void>
+  updateCourse: (id: number, course: Partial<CourseType>) => Promise<void>
+  deleteCourse: (id: number) => Promise<void>
   
   // Projects state and methods
   projects: ProjectType[]
-  addProject: (project: Omit<ProjectType, 'id'>) => void
-  updateProject: (id: number, project: Partial<ProjectType>) => void
-  deleteProject: (id: number) => void
+  addProject: (project: Omit<ProjectType, 'id'>) => Promise<void>
+  updateProject: (id: number, project: Partial<ProjectType>) => Promise<void>
+  deleteProject: (id: number) => Promise<void>
   
   // Activities state and methods
   activities: ActivityType[]
-  addActivity: (activity: Omit<ActivityType, 'id'>) => void
-  updateActivity: (id: number, activity: Partial<ActivityType>) => void
-  deleteActivity: (id: number) => void
+  addActivity: (activity: Omit<ActivityType, 'id'>) => Promise<void>
+  updateActivity: (id: number, activity: Partial<ActivityType>) => Promise<void>
+  deleteActivity: (id: number) => Promise<void>
   
   // Timer functionality
   startActivityTimer: (activityId: number) => void
-  addTimeToActivity: (activityId: number, seconds: number, notes: string) => void
-  deleteSessionFromActivity: (activityId: number, sessionIndex: number) => void
+  addTimeToActivity: (activityId: number, seconds: number, notes: string) => Promise<void>
+  deleteSessionFromActivity: (activityId: number, sessionIndex: number) => Promise<void>
   
-  // Utilities
+  // Utility methods
   formatTimeFromSeconds: (seconds: number) => string
-}
-
-// Storage keys
-const STORAGE_KEYS = {
-  COURSES: 'courseApp_courses',
-  PROJECTS: 'courseApp_projects',
-  ACTIVITIES: 'courseApp_activities'
 }
 
 // Default context value
 const defaultContextValue: AppContextType = {
   courses: [],
-  addCourse: () => {},
-  updateCourse: () => {},
-  deleteCourse: () => {},
+  addCourse: async () => {},
+  updateCourse: async () => {},
+  deleteCourse: async () => {},
   
   projects: [],
-  addProject: () => {},
-  updateProject: () => {},
-  deleteProject: () => {},
+  addProject: async () => {},
+  updateProject: async () => {},
+  deleteProject: async () => {},
   
   activities: [],
-  addActivity: () => {},
-  updateActivity: () => {},
-  deleteActivity: () => {},
+  addActivity: async () => {},
+  updateActivity: async () => {},
+  deleteActivity: async () => {},
   
   startActivityTimer: () => {},
-  addTimeToActivity: () => {},
-  deleteSessionFromActivity: () => {},
+  addTimeToActivity: async () => {},
+  deleteSessionFromActivity: async () => {},
   
-  formatTimeFromSeconds: () => '0h 0m'
+  formatTimeFromSeconds: () => '',
 }
 
 // Create the context
 const AppContext = createContext<AppContextType>(defaultContextValue)
 
 // Helper to format time
-const formatTimeFromSeconds = (seconds: number): string => {
+function formatTimeFromSeconds(seconds: number): string {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   return `${hours}h ${minutes}m`
@@ -110,361 +120,285 @@ export const useAppContext = () => useContext(AppContext)
 
 // Provider component
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  // State for courses
-  const [courses, setCourses] = useState<CourseType[]>([
-    {
-      id: 1,
-      title: 'Learn Python',
-      description: 'A comprehensive course covering Python basics to advanced concepts',
-      color: 'green'
-    },
-    {
-      id: 2,
-      title: 'Advanced JavaScript',
-      description: 'Deep dive into modern JavaScript and advanced programming patterns',
-      color: 'yellow'
-    },
-    {
-      id: 3,
-      title: 'Web Development Bootcamp',
-      description: 'Full-stack web development course covering frontend and backend technologies',
-      color: 'blue'
-    }
-  ])
+  // State for data
+  const [courses, setCourses] = useState<CourseType[]>([])
+  const [projects, setProjects] = useState<ProjectType[]>([])
+  const [activities, setActivities] = useState<ActivityType[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   
-  // State for projects
-  const [projects, setProjects] = useState<ProjectType[]>([
-    {
-      id: 1,
-      title: 'Personal Portfolio',
-      description: 'Building a responsive portfolio website using React and Tailwind CSS',
-      totalActivities: 4,
-      totalTime: '18h 45m',
-      color: 'blue'
-    },
-    {
-      id: 2,
-      title: 'E-commerce App',
-      description: 'Full-stack e-commerce application with Next.js and Supabase',
-      totalActivities: 6,
-      totalTime: '32h 20m',
-      color: 'purple'
-    },
-    {
-      id: 3,
-      title: 'Mobile Weather App',
-      description: 'React Native weather application with API integration',
-      totalActivities: 3,
-      totalTime: '8h 15m',
-      color: 'teal'
-    }
-  ])
-  
-  // State for activities
-  const [activities, setActivities] = useState<ActivityType[]>([
-    {
-      id: 1,
-      title: 'Data Structures',
-      description: 'Learn about arrays, linked lists, trees and graphs',
-      parentType: 'course',
-      parentId: 1,
-      parentTitle: 'Learn Python',
-      parentColor: 'green',
-      totalTime: '8h 15m',
-      totalSeconds: 29700,
-      sessions: [
-        { duration: 29700, date: new Date('2025-03-15'), notes: 'Completed arrays and linked lists' }
-      ]
-    },
-    {
-      id: 2,
-      title: 'Algorithms',
-      description: 'Sorting, searching and other common algorithms',
-      parentType: 'course',
-      parentId: 1,
-      parentTitle: 'Learn Python',
-      parentColor: 'green',
-      totalTime: '6h 30m',
-      totalSeconds: 23400,
-      sessions: [
-        { duration: 23400, date: new Date('2025-03-14'), notes: 'Worked on bubble sort and quick sort' }
-      ]
-    },
-    {
-      id: 3,
-      title: 'Promises & Async/Await',
-      description: 'Deep dive into JavaScript asynchronous patterns',
-      parentType: 'course',
-      parentId: 2,
-      parentTitle: 'Advanced JavaScript',
-      parentColor: 'yellow',
-      totalTime: '4h 45m',
-      totalSeconds: 17100,
-      sessions: [
-        { duration: 17100, date: new Date('2025-03-13'), notes: 'Learned about promise chaining' }
-      ]
-    },
-    {
-      id: 4,
-      title: 'API Integration',
-      description: 'Connecting to weather APIs and parsing responses',
-      parentType: 'project',
-      parentId: 3,
-      parentTitle: 'Mobile Weather App',
-      parentColor: 'teal',
-      totalTime: '3h 20m',
-      totalSeconds: 12000,
-      sessions: [
-        { duration: 12000, date: new Date('2025-03-12'), notes: 'Set up API key and tested endpoints' }
-      ]
-    },
-    {
-      id: 5,
-      title: 'UI Components',
-      description: 'Building reusable UI components for the app',
-      parentType: 'project',
-      parentId: 2,
-      parentTitle: 'E-commerce App',
-      parentColor: 'purple',
-      totalTime: '10h 45m',
-      totalSeconds: 38700,
-      sessions: [
-        { duration: 38700, date: new Date('2025-03-11'), notes: 'Created product card and list components' }
-      ]
-    }
-  ])
+  // Activity timer state
+  const [activeActivityId, setActiveActivityId] = useState<number | null>(null)
+  const [timerStart, setTimerStart] = useState<Date | null>(null)
 
-  // Load data from localStorage on component mount
+  // Load data from database on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    const fetchData = async () => {
       try {
-        const storedCourses = localStorage.getItem(STORAGE_KEYS.COURSES)
-        const storedProjects = localStorage.getItem(STORAGE_KEYS.PROJECTS)
-        const storedActivities = localStorage.getItem(STORAGE_KEYS.ACTIVITIES)
+        setIsLoading(true)
         
-        if (storedCourses) {
-          setCourses(JSON.parse(storedCourses))
+        // Fetch courses from the database
+        const coursesData = await getCourses()
+        if (coursesData) {
+          setCourses(coursesData)
         }
         
-        if (storedProjects) {
-          setProjects(JSON.parse(storedProjects))
+        // Fetch projects from the database
+        const projectsData = await getProjects()
+        if (projectsData) {
+          setProjects(projectsData)
         }
         
-        if (storedActivities) {
-          // Need to convert string dates back to Date objects
-          const parsedActivities = JSON.parse(storedActivities)
-          const processedActivities = parsedActivities.map((activity: any) => ({
-            ...activity,
-            sessions: activity.sessions.map((session: any) => ({
-              ...session,
-              date: new Date(session.date)
-            }))
-          }))
-          setActivities(processedActivities)
+        // Fetch activities from the database
+        const activitiesData = await getActivities()
+        if (activitiesData) {
+          setActivities(activitiesData)
         }
       } catch (error) {
-        console.error('Error loading data from localStorage:', error)
+        console.error('Error fetching data:', error)
+      } finally {
+        setIsLoading(false)
       }
     }
+    
+    fetchData()
   }, [])
 
-  // Save data to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(courses))
-      localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects))
-      localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(activities))
-    }
-  }, [courses, projects, activities])
-
-  // Update project stats based on activities
-  useEffect(() => {
-    const updatedProjects = projects.map(project => {
-      // Filter activities for this project
-      const projectActivities = activities.filter(
-        activity => activity.parentType === 'project' && activity.parentId === project.id
-      )
-      
-      // Calculate total time in seconds
-      const totalSeconds = projectActivities.reduce(
-        (total, activity) => total + activity.totalSeconds, 0
-      )
-      
-      return {
-        ...project,
-        totalActivities: projectActivities.length,
-        totalTime: formatTimeFromSeconds(totalSeconds)
+  // Course CRUD operations
+  const addCourse = async (course: Omit<CourseType, 'id'>) => {
+    try {
+      const newCourse = await addCourseAction({
+        title: course.title, 
+        description: course.description, 
+        color: course.color
+      })
+      if (newCourse) {
+        setCourses(prevCourses => [...prevCourses, newCourse as CourseType])
       }
-    })
-    
-    if (JSON.stringify(updatedProjects) !== JSON.stringify(projects)) {
-      setProjects(updatedProjects)
+    } catch (error) {
+      console.error('Error adding course:', error)
     }
-  }, [activities, projects])
-
-  // CRUD operations for Courses
-  const addCourse = (course: Omit<CourseType, 'id'>) => {
-    const newCourse = {
-      ...course,
-      id: courses.length ? Math.max(...courses.map(c => c.id)) + 1 : 1
-    }
-    setCourses([...courses, newCourse])
   }
 
-  const updateCourse = (id: number, courseUpdate: Partial<CourseType>) => {
-    setCourses(courses.map(course => 
-      course.id === id ? { ...course, ...courseUpdate } : course
-    ))
-    
-    // Update any related activities if the course title or color changed
-    if (courseUpdate.title || courseUpdate.color) {
-      setActivities(activities.map(activity => {
-        if (activity.parentType === 'course' && activity.parentId === id) {
-          return {
-            ...activity,
-            parentTitle: courseUpdate.title || activity.parentTitle,
-            parentColor: courseUpdate.color || activity.parentColor
-          }
+  const updateCourse = async (id: number, course: Partial<CourseType>) => {
+    try {
+      const updatedCourse = await updateCourseAction(id, {
+        title: course.title,
+        description: course.description,
+        color: course.color
+      })
+      if (updatedCourse) {
+        setCourses(prevCourses => 
+          prevCourses.map(c => c.id === id ? { ...c, ...course } : c)
+        )
+      }
+    } catch (error) {
+      console.error('Error updating course:', error)
+    }
+  }
+
+  const deleteCourse = async (id: number) => {
+    try {
+      await deleteCourseAction(id)
+      setCourses(prevCourses => prevCourses.filter(c => c.id !== id))
+    } catch (error) {
+      console.error('Error deleting course:', error)
+    }
+  }
+
+  // Project CRUD operations
+  const addProject = async (project: Omit<ProjectType, 'id'>) => {
+    try {
+      const newProject = await addProjectAction({
+        title: project.title, 
+        description: project.description, 
+        color: project.color
+      })
+      if (newProject) {
+        setProjects(prevProjects => [...prevProjects, newProject as ProjectType])
+      }
+    } catch (error) {
+      console.error('Error adding project:', error)
+    }
+  }
+
+  const updateProject = async (id: number, project: Partial<ProjectType>) => {
+    try {
+      const updatedProject = await updateProjectAction(id, {
+        title: project.title,
+        description: project.description,
+        color: project.color
+      })
+      if (updatedProject) {
+        setProjects(prevProjects => 
+          prevProjects.map(p => p.id === id ? { ...p, ...project } : p)
+        )
+      }
+    } catch (error) {
+      console.error('Error updating project:', error)
+    }
+  }
+
+  const deleteProject = async (id: number) => {
+    try {
+      await deleteProjectAction(id)
+      setProjects(prevProjects => prevProjects.filter(p => p.id !== id))
+    } catch (error) {
+      console.error('Error deleting project:', error)
+    }
+  }
+
+  // Activity CRUD operations
+  const addActivity = async (activity: Omit<ActivityType, 'id'>) => {
+    try {
+      // Convert from camelCase to snake_case for the API
+      const newActivity = await addActivityAction({ 
+        title: activity.title, 
+        description: activity.description,
+        // Convert camelCase to snake_case for the backend
+        parent_type: activity.parentType === 'course' ? 'course' : 'project',
+        parent_id: activity.parentId
+      })
+      
+      if (newActivity) {
+        const parent = activity.parentType === 'course' 
+          ? courses.find(c => c.id === activity.parentId)
+          : projects.find(p => p.id === activity.parentId)
+        
+        // Convert from backend response to our frontend type
+        const activityWithParent = {
+          ...newActivity,
+          // Add these frontend-specific fields 
+          parentType: activity.parentType,
+          parentId: activity.parentId,
+          parentTitle: parent?.title || '',
+          parentColor: parent?.color || 'blue',
+          totalSeconds: 0,
+          totalTime: '0h 0m',
+          sessions: []
         }
-        return activity
-      }))
+        
+        setActivities(prevActivities => [...prevActivities, activityWithParent as ActivityType])
+      }
+    } catch (error) {
+      console.error('Error adding activity:', error)
     }
   }
 
-  const deleteCourse = (id: number) => {
-    setCourses(courses.filter(course => course.id !== id))
-    
-    // Optional: delete all activities related to this course
-    setActivities(activities.filter(
-      activity => !(activity.parentType === 'course' && activity.parentId === id)
-    ))
-  }
-
-  // CRUD operations for Projects
-  const addProject = (project: Omit<ProjectType, 'id'>) => {
-    const newProject = {
-      ...project,
-      id: projects.length ? Math.max(...projects.map(p => p.id)) + 1 : 1,
-      totalActivities: 0,
-      totalTime: '0h 0m'
-    }
-    setProjects([...projects, newProject])
-  }
-
-  const updateProject = (id: number, projectUpdate: Partial<ProjectType>) => {
-    setProjects(projects.map(project => 
-      project.id === id ? { ...project, ...projectUpdate } : project
-    ))
-    
-    // Update any related activities if the project title or color changed
-    if (projectUpdate.title || projectUpdate.color) {
-      setActivities(activities.map(activity => {
-        if (activity.parentType === 'project' && activity.parentId === id) {
-          return {
-            ...activity,
-            parentTitle: projectUpdate.title || activity.parentTitle,
-            parentColor: projectUpdate.color || activity.parentColor
-          }
-        }
-        return activity
-      }))
+  const updateActivity = async (id: number, activity: Partial<ActivityType>) => {
+    try {
+      const { parentTitle, parentColor, totalTime, totalSeconds, sessions, ...rest } = activity
+      
+      // Convert from camelCase to snake_case for the API
+      const dbActivity = {
+        title: rest.title,
+        description: rest.description
+      }
+      
+      const updatedActivity = await updateActivityAction(id, dbActivity)
+      
+      if (updatedActivity) {
+        setActivities(prevActivities => 
+          prevActivities.map(a => a.id === id ? { ...a, ...activity } : a)
+        )
+      }
+    } catch (error) {
+      console.error('Error updating activity:', error)
     }
   }
 
-  const deleteProject = (id: number) => {
-    setProjects(projects.filter(project => project.id !== id))
-    
-    // Optional: delete all activities related to this project
-    setActivities(activities.filter(
-      activity => !(activity.parentType === 'project' && activity.parentId === id)
-    ))
-  }
-
-  // CRUD operations for Activities
-  const addActivity = (activity: Omit<ActivityType, 'id'>) => {
-    const newActivity = {
-      ...activity,
-      id: activities.length ? Math.max(...activities.map(a => a.id)) + 1 : 1
+  const deleteActivity = async (id: number) => {
+    try {
+      await deleteActivityAction(id)
+      setActivities(prevActivities => prevActivities.filter(a => a.id !== id))
+    } catch (error) {
+      console.error('Error deleting activity:', error)
     }
-    setActivities([...activities, newActivity])
-  }
-
-  const updateActivity = (id: number, activityUpdate: Partial<ActivityType>) => {
-    setActivities(activities.map(activity => 
-      activity.id === id ? { ...activity, ...activityUpdate } : activity
-    ))
-  }
-
-  const deleteActivity = (id: number) => {
-    setActivities(activities.filter(activity => activity.id !== id))
   }
 
   // Timer functionality
   const startActivityTimer = (activityId: number) => {
-    // This function is a placeholder - the actual timer implementation
-    // happens in the TimerDialog component
-    console.log(`Starting timer for activity ${activityId}`)
-    
-    // We could implement additional functionality here if needed,
-    // such as tracking currently active timers or updating UI state
+    setActiveActivityId(activityId)
+    setTimerStart(new Date())
   }
 
-  const addTimeToActivity = (activityId: number, seconds: number, notes: string) => {
-    // Validate inputs
-    if (seconds <= 0) {
-      console.error('Cannot add zero or negative time to activity')
-      return
-    }
-    
-    if (!notes) {
-      notes = 'No notes provided'
-    }
-    
-    setActivities(prevActivities => prevActivities.map(activity => {
-      if (activity.id === activityId) {
-        const newSession = {
-          duration: seconds,
-          date: new Date(),
-          notes
+  const addTimeToActivity = async (activityId: number, seconds: number, notes: string) => {
+    try {
+      // Reset timer state
+      setActiveActivityId(null)
+      setTimerStart(null)
+      
+      // Add session to database
+      const session = await addSessionAction(
+        activityId, 
+        { 
+          duration: seconds, 
+          notes 
         }
-        
-        const newTotalSeconds = activity.totalSeconds + seconds
-        
-        return {
-          ...activity,
-          totalSeconds: newTotalSeconds,
-          totalTime: formatTimeFromSeconds(newTotalSeconds),
-          sessions: [...activity.sessions, newSession]
-        }
+      )
+      
+      if (session) {
+        setActivities(prevActivities => 
+          prevActivities.map(activity => {
+            if (activity.id === activityId) {
+              const currentSessions = activity.sessions || []
+              const totalSeconds = (activity.totalSeconds || 0) + seconds
+              
+              return {
+                ...activity,
+                totalSeconds,
+                totalTime: formatTimeFromSeconds(totalSeconds),
+                sessions: [
+                  ...currentSessions,
+                  {
+                    id: session.id,
+                    duration: seconds,
+                    date: new Date(),
+                    notes
+                  }
+                ]
+              }
+            }
+            return activity
+          })
+        )
       }
-      return activity
-    }))
+    } catch (error) {
+      console.error('Error adding time to activity:', error)
+    }
   }
 
-  const deleteSessionFromActivity = (activityId: number, sessionIndex: number) => {
-    setActivities(prevActivities => prevActivities.map(activity => {
-      if (activity.id === activityId) {
-        // Get the session to be deleted
-        const sessionToDelete = activity.sessions[sessionIndex]
-        
-        if (!sessionToDelete) return activity
-        
-        // Remove the session's duration from the total
-        const newTotalSeconds = Math.max(0, activity.totalSeconds - sessionToDelete.duration)
-        
-        // Create a new sessions array without the deleted session
-        const newSessions = activity.sessions.filter((_, index) => index !== sessionIndex)
-        
-        // Return the updated activity
-        return {
-          ...activity,
-          totalSeconds: newTotalSeconds,
-          totalTime: formatTimeFromSeconds(newTotalSeconds),
-          sessions: newSessions
-        }
+  const deleteSessionFromActivity = async (activityId: number, sessionIndex: number) => {
+    try {
+      const activity = activities.find(a => a.id === activityId)
+      if (!activity || !activity.sessions || !activity.sessions[sessionIndex]) {
+        return
       }
-      return activity
-    }))
+      
+      const sessionId = activity.sessions[sessionIndex].id
+      if (!sessionId) return
+      
+      await deleteSessionAction(sessionId)
+      
+      setActivities(prevActivities => 
+        prevActivities.map(activity => {
+          if (activity.id === activityId && activity.sessions) {
+            const updatedSessions = [...activity.sessions]
+            const removedSession = updatedSessions.splice(sessionIndex, 1)[0]
+            const totalSeconds = (activity.totalSeconds || 0) - removedSession.duration
+            
+            return {
+              ...activity,
+              totalSeconds,
+              totalTime: formatTimeFromSeconds(totalSeconds),
+              sessions: updatedSessions
+            }
+          }
+          return activity
+        })
+      )
+    } catch (error) {
+      console.error('Error deleting session:', error)
+    }
   }
 
   const contextValue: AppContextType = {
