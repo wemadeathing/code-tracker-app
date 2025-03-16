@@ -58,6 +58,7 @@ type AppContextType = {
   // Timer functionality
   startActivityTimer: (activityId: number) => void
   addTimeToActivity: (activityId: number, seconds: number, notes: string) => void
+  deleteSessionFromActivity: (activityId: number, sessionIndex: number) => void
   
   // Utilities
   formatTimeFromSeconds: (seconds: number) => string
@@ -89,6 +90,7 @@ const defaultContextValue: AppContextType = {
   
   startActivityTimer: () => {},
   addTimeToActivity: () => {},
+  deleteSessionFromActivity: () => {},
   
   formatTimeFromSeconds: () => '0h 0m'
 }
@@ -426,6 +428,32 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }))
   }
 
+  const deleteSessionFromActivity = (activityId: number, sessionIndex: number) => {
+    setActivities(activities.map(activity => {
+      if (activity.id === activityId) {
+        // Get the session to be deleted
+        const sessionToDelete = activity.sessions[sessionIndex]
+        
+        if (!sessionToDelete) return activity
+        
+        // Remove the session's duration from the total
+        const newTotalSeconds = Math.max(0, activity.totalSeconds - sessionToDelete.duration)
+        
+        // Create a new sessions array without the deleted session
+        const newSessions = activity.sessions.filter((_, index) => index !== sessionIndex)
+        
+        // Return the updated activity
+        return {
+          ...activity,
+          totalSeconds: newTotalSeconds,
+          totalTime: formatTimeFromSeconds(newTotalSeconds),
+          sessions: newSessions
+        }
+      }
+      return activity
+    }))
+  }
+
   const contextValue: AppContextType = {
     courses,
     addCourse,
@@ -444,6 +472,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     
     startActivityTimer,
     addTimeToActivity,
+    deleteSessionFromActivity,
     
     formatTimeFromSeconds
   }

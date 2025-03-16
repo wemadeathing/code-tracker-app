@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, Search, MoreHorizontal, BookOpen, Clock } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, BookOpen, Clock, Play, List } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useAppContext, CourseType } from '@/contexts/app-context'
+import { useRouter } from 'next/navigation'
 
 export default function CoursesPage() {
   const { 
@@ -26,6 +27,7 @@ export default function CoursesPage() {
   const [newCourseTitle, setNewCourseTitle] = useState('')
   const [newCourseDescription, setNewCourseDescription] = useState('')
   const [newCourseColor, setNewCourseColor] = useState('blue')
+  const router = useRouter()
 
   const colorOptions = [
     { name: 'Red', value: 'red' },
@@ -74,6 +76,16 @@ export default function CoursesPage() {
       activitiesCount: courseActivities.length,
       totalTime: courseActivities.length ? totalTimeSeconds : 0
     }
+  }
+
+  // Navigate to activities page filtered by this course
+  const viewCourseActivities = (course: CourseType) => {
+    router.push(`/dashboard/activities?parent=course-${course.id}`)
+  }
+
+  // Navigate to add activity page with this course pre-selected
+  const addActivityToCourse = (course: CourseType) => {
+    router.push(`/dashboard/activities?new=1&parent=course-${course.id}`)
   }
 
   return (
@@ -199,8 +211,12 @@ export default function CoursesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => {}}>View Details</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => {}}>Add Activity</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => viewCourseActivities(course)}>
+                          View Activities
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => addActivityToCourse(course)}>
+                          Add Activity
+                        </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => {}}>Edit Course</DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-destructive"
@@ -217,15 +233,46 @@ export default function CoursesPage() {
                     {course.description}
                   </p>
                 </CardContent>
-                <CardFooter className="flex justify-between pt-2 text-muted-foreground text-sm border-t">
-                  <div className="flex items-center">
-                    <BookOpen className="h-4 w-4 mr-1" />
-                    <span>{stats.activitiesCount} Activities</span>
+                <CardFooter className="border-t pt-4 flex flex-col gap-3">
+                  <div className="flex justify-between w-full text-muted-foreground text-sm">
+                    <div className="flex items-center">
+                      <BookOpen className="h-4 w-4 mr-1" />
+                      <span>{stats.activitiesCount} Activities</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      <span>{stats.totalTime > 0 ? `${Math.floor(stats.totalTime / 3600)}h ${Math.floor((stats.totalTime % 3600) / 60)}m` : '0h 0m'}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-1" />
-                    <span>{stats.totalTime > 0 ? `${Math.floor(stats.totalTime / 3600)}h ${Math.floor((stats.totalTime % 3600) / 60)}m` : '0h 0m'}</span>
-                  </div>
+                  {stats.activitiesCount > 0 ? (
+                    <div className="flex gap-2 w-full">
+                      <Button 
+                        variant="default" 
+                        className="w-full" 
+                        size="sm"
+                        onClick={() => viewCourseActivities(course)}
+                      >
+                        <Play className="h-4 w-4 mr-1" /> Start Activities
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full" 
+                        size="sm"
+                        onClick={() => viewCourseActivities(course)}
+                      >
+                        <List className="h-4 w-4 mr-1" /> View All
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="default" 
+                      className="w-full" 
+                      size="sm"
+                      onClick={() => addActivityToCourse(course)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add First Activity
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             )

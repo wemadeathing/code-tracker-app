@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, Search, MoreHorizontal, Clock, Folder } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, Clock, Folder, Play, History } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { TimerDialog } from '@/components/timer-dialog'
+import { LogTimeDialog } from '@/components/log-time-dialog'
 import { useAppContext, ActivityType } from '@/contexts/app-context'
+import { useRouter } from 'next/navigation'
 
 export default function ActivitiesPage() {
   const { 
@@ -38,7 +40,9 @@ export default function ActivitiesPage() {
   
   // Timer state
   const [isTimerOpen, setIsTimerOpen] = useState(false)
+  const [isLogTimeOpen, setIsLogTimeOpen] = useState(false)
   const [currentActivity, setCurrentActivity] = useState<ActivityType | null>(null)
+  const router = useRouter()
 
   // Combine courses and projects for the parent selector
   const parentItems = useMemo(() => {
@@ -122,18 +126,38 @@ export default function ActivitiesPage() {
 
   // Handler for starting the timer
   const handleStartTimer = (activity: ActivityType) => {
-    setCurrentActivity(activity);
-    setIsTimerOpen(true);
-  };
+    setCurrentActivity(activity)
+    setIsTimerOpen(true)
+  }
+
+  // Handler for logging past time
+  const handleLogPastTime = (activity: ActivityType) => {
+    setCurrentActivity(activity)
+    setIsLogTimeOpen(true)
+  }
 
   // Handler for saving time from the timer
   const handleSaveTime = (seconds: number, notes: string) => {
     if (currentActivity) {
-      addTimeToActivity(currentActivity.id, seconds, notes);
-      setIsTimerOpen(false);
-      setCurrentActivity(null);
+      addTimeToActivity(currentActivity.id, seconds, notes)
+      setIsTimerOpen(false)
+      setCurrentActivity(null)
     }
-  };
+  }
+
+  // Handler for saving logged time
+  const handleSaveLoggedTime = (seconds: number, notes: string) => {
+    if (currentActivity) {
+      addTimeToActivity(currentActivity.id, seconds, notes)
+      setIsLogTimeOpen(false)
+      setCurrentActivity(null)
+    }
+  }
+
+  // Handler for redirecting to sessions
+  const navigateToSessions = () => {
+    router.push('/dashboard/sessions')
+  }
 
   return (
     <div className="flex flex-col p-4 gap-6">
@@ -276,7 +300,10 @@ export default function ActivitiesPage() {
                       <DropdownMenuItem onSelect={() => handleStartTimer(activity)}>
                         Start Timer
                       </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => {}}>View Sessions</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleLogPastTime(activity)}>
+                        Log Past Time
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={navigateToSessions}>View Sessions</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => {}}>Edit Activity</DropdownMenuItem>
                       <DropdownMenuItem 
                         className="text-destructive"
@@ -307,11 +334,31 @@ export default function ActivitiesPage() {
                   </Badge>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between pt-2 text-muted-foreground text-sm border-t">
-                <span>Sessions: {activity.sessions.length}</span>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-1" />
-                  <span>{activity.totalTime || '0h 0m'}</span>
+              <CardFooter className="border-t pt-4 flex flex-col gap-3">
+                <div className="flex justify-between w-full text-muted-foreground text-sm">
+                  <span>Sessions: {activity.sessions.length}</span>
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-1" />
+                    <span>{activity.totalTime || '0h 0m'}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2 w-full">
+                  <Button 
+                    variant="default" 
+                    className="w-full" 
+                    size="sm"
+                    onClick={() => handleStartTimer(activity)}
+                  >
+                    <Play className="h-4 w-4 mr-1" /> Start Timer
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    size="sm"
+                    onClick={() => handleLogPastTime(activity)}
+                  >
+                    <History className="h-4 w-4 mr-1" /> Log Time
+                  </Button>
                 </div>
               </CardFooter>
             </Card>
@@ -342,15 +389,27 @@ export default function ActivitiesPage() {
 
       {/* Timer Dialog */}
       {currentActivity && (
-        <TimerDialog
-          isOpen={isTimerOpen}
-          onClose={() => {
-            setIsTimerOpen(false);
-            setCurrentActivity(null);
-          }}
-          activity={currentActivity}
-          onSaveTime={handleSaveTime}
-        />
+        <>
+          <TimerDialog
+            isOpen={isTimerOpen}
+            onClose={() => {
+              setIsTimerOpen(false);
+              setCurrentActivity(null);
+            }}
+            activity={currentActivity}
+            onSaveTime={handleSaveTime}
+          />
+          
+          <LogTimeDialog
+            isOpen={isLogTimeOpen}
+            onClose={() => {
+              setIsLogTimeOpen(false);
+              setCurrentActivity(null);
+            }}
+            activity={currentActivity}
+            onSaveTime={handleSaveLoggedTime}
+          />
+        </>
       )}
     </div>
   )

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, Search, MoreHorizontal, Clock, Layers } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, CheckSquare, Clock, Play, List } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useAppContext, ProjectType } from '@/contexts/app-context'
+import { useRouter } from 'next/navigation'
 
 export default function ProjectsPage() {
   const { 
@@ -20,12 +21,13 @@ export default function ProjectsPage() {
     deleteProject,
     activities 
   } = useAppContext()
-  
+
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false)
   const [newProjectTitle, setNewProjectTitle] = useState('')
   const [newProjectDescription, setNewProjectDescription] = useState('')
   const [newProjectColor, setNewProjectColor] = useState('blue')
+  const router = useRouter()
 
   const colorOptions = [
     { name: 'Red', value: 'red' },
@@ -62,7 +64,7 @@ export default function ProjectsPage() {
     deleteProject(id)
   }
 
-  // Get project stats
+  // Calculate project stats
   const getProjectStats = (projectId: number) => {
     const projectActivities = activities.filter(
       activity => activity.parentType === 'project' && activity.parentId === projectId
@@ -76,6 +78,16 @@ export default function ProjectsPage() {
       activitiesCount: projectActivities.length,
       totalTime: projectActivities.length ? totalTimeSeconds : 0
     }
+  }
+
+  // Navigate to activities page filtered by this project
+  const viewProjectActivities = (project: ProjectType) => {
+    router.push(`/dashboard/activities?parent=project-${project.id}`)
+  }
+
+  // Navigate to add activity page with this project pre-selected
+  const addActivityToProject = (project: ProjectType) => {
+    router.push(`/dashboard/activities?new=1&parent=project-${project.id}`)
   }
 
   return (
@@ -201,8 +213,12 @@ export default function ProjectsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => {}}>View Activities</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => {}}>Add Activity</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => viewProjectActivities(project)}>
+                          View Activities
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => addActivityToProject(project)}>
+                          Add Activity
+                        </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => {}}>Edit Project</DropdownMenuItem>
                         <DropdownMenuItem 
                           className="text-destructive"
@@ -219,15 +235,46 @@ export default function ProjectsPage() {
                     {project.description}
                   </p>
                 </CardContent>
-                <CardFooter className="flex justify-between pt-2 text-muted-foreground text-sm border-t">
-                  <div className="flex items-center">
-                    <Layers className="h-4 w-4 mr-1" />
-                    <span>{stats.activitiesCount} Activities</span>
+                <CardFooter className="border-t pt-4 flex flex-col gap-3">
+                  <div className="flex justify-between w-full text-muted-foreground text-sm">
+                    <div className="flex items-center">
+                      <CheckSquare className="h-4 w-4 mr-1" />
+                      <span>{stats.activitiesCount} Activities</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      <span>{stats.totalTime > 0 ? `${Math.floor(stats.totalTime / 3600)}h ${Math.floor((stats.totalTime % 3600) / 60)}m` : '0h 0m'}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-1" />
-                    <span>{stats.totalTime > 0 ? `${Math.floor(stats.totalTime / 3600)}h ${Math.floor((stats.totalTime % 3600) / 60)}m` : '0h 0m'}</span>
-                  </div>
+                  {stats.activitiesCount > 0 ? (
+                    <div className="flex gap-2 w-full">
+                      <Button 
+                        variant="default" 
+                        className="w-full" 
+                        size="sm"
+                        onClick={() => viewProjectActivities(project)}
+                      >
+                        <Play className="h-4 w-4 mr-1" /> Start Activities
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full" 
+                        size="sm"
+                        onClick={() => viewProjectActivities(project)}
+                      >
+                        <List className="h-4 w-4 mr-1" /> View All
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="default" 
+                      className="w-full" 
+                      size="sm"
+                      onClick={() => addActivityToProject(project)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add First Activity
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             );

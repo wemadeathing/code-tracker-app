@@ -1,61 +1,112 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { format } from 'date-fns'
-import { Calendar as CalendarIcon, X, Download } from 'lucide-react'
+import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
+import { Calendar as CalendarIcon, X, Download, Trash2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog'
+import { useAppContext } from '@/contexts/app-context'
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+
+type SessionWithDetails = {
+  id: string
+  activityId: number
+  activityTitle: string
+  parentTitle: string
+  parentColor: string
+  parentType: 'course' | 'project'
+  date: Date
+  duration: number
+  formattedDuration: string
+  notes: string
+}
 
 export default function Sessions() {
+  const { activities, deleteSessionFromActivity, formatTimeFromSeconds } = useAppContext()
   const [selectedActivity, setSelectedActivity] = useState<string>("all")
   const [selectedDateRange, setSelectedDateRange] = useState<string>("all-time")
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [isCalendarOpen, setIsCalendarOpen] = useState<boolean>(false)
+  const [selectedSessionForDeletion, setSelectedSessionForDeletion] = useState<SessionWithDetails | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false)
 
-  // Dummy sessions data
-  const sessions = [
-    {
-      id: 1,
-      date: new Date(2025, 2, 11), // March 11, 2025
-      activity: "Arabica website",
-      color: "teal",
-      duration: "6h 0m 0s",
-      timeRange: "12:21 - 18:21",
-      notes: "No notes"
-    },
-    {
-      id: 2,
-      date: new Date(2025, 2, 11), // March 11, 2025
-      activity: "HTML",
-      color: "red",
-      duration: "3h 0m 0s",
-      timeRange: "12:22 - 15:22",
-      notes: "No notes"
-    },
-    {
-      id: 3,
-      date: new Date(2025, 2, 11), // March 11, 2025
-      activity: "Python Programming",
-      color: "green",
-      duration: "52s",
-      timeRange: "12:16 - 12:17",
-      notes: "No notes"
-    },
-    {
-      id: 4,
-      date: new Date(2025, 2, 11), // March 11, 2025
-      activity: "Python Programming",
-      color: "green",
-      duration: "5h 0m 0s",
-      timeRange: "02:00 - 07:00",
-      notes: "test"
+  // Collect all sessions from all activities
+  const allSessions = useMemo(() => {
+    const sessions: SessionWithDetails[] = []
+    
+    activities.forEach(activity => {
+      activity.sessions.forEach((session, index) => {
+        sessions.push({
+          id: `${activity.id}-${index}`,
+          activityId: activity.id,
+          activityTitle: activity.title,
+          parentTitle: activity.parentTitle,
+          parentColor: activity.parentColor,
+          parentType: activity.parentType,
+          date: new Date(session.date),
+          duration: session.duration,
+          formattedDuration: formatTimeFromSeconds(session.duration),
+          notes: session.notes || "No notes"
+        })
+      })
+    })
+    
+    // Sort by date (newest first)
+    return sessions.sort((a, b) => b.date.getTime() - a.date.getTime())
+  }, [activities, formatTimeFromSeconds])
+
+  // Filter sessions based on selected activity and date
+  const filteredSessions = useMemo(() => {
+    return allSessions.filter(session => {
+      // Filter by activity
+      const activityMatch = selectedActivity === "all" || 
+        selectedActivity === session.activityId.toString();
+      
+      // Filter by date range
+      let dateMatch = true;
+      if (selectedDateRange === "custom" && date) {
+        const selectedDate = startOfDay(date);
+        const sessionDate = startOfDay(session.date);
+        dateMatch = selectedDate.getTime() === sessionDate.getTime();
+      }
+      
+      return activityMatch && dateMatch;
+    });
+  }, [allSessions, selectedActivity, selectedDateRange, date]);
+
+  // Format time range (not implemented in stored data, so we'll skip this)
+  const formatTimeRange = (date: Date, duration: number) => {
+    return "N/A"; // We don't store start and end times, just duration
+  };
+
+  // Handle session deletion
+  const handleDeleteSession = () => {
+    if (selectedSessionForDeletion) {
+      const [activityId, sessionIndex] = selectedSessionForDeletion.id.split('-').map(Number);
+      deleteSessionFromActivity(activityId, sessionIndex);
+      setIsDeleteDialogOpen(false);
+      setSelectedSessionForDeletion(null);
     }
-  ]
+  };
 
   return (
     <div className='flex flex-col justify-center items-start w-full px-4 pt-4 gap-4'>
@@ -78,26 +129,18 @@ export default function Sessions() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All activities</SelectItem>
-            <div className="px-2 py-1.5 text-sm font-semibold">Activities & Courses</div>
-            <SelectItem value="all-activities">All activities</SelectItem>
-            <SelectItem value="arabica">
-              <div className="flex items-center">
-                <div className="w-2 h-2 rounded-full bg-teal-500 mr-2"></div>
-                Arabica website
-              </div>
-            </SelectItem>
-            <SelectItem value="html">
-              <div className="flex items-center">
-                <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                HTML
-              </div>
-            </SelectItem>
-            <SelectItem value="python">
-              <div className="flex items-center">
-                <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                Python Programming
-              </div>
-            </SelectItem>
+            <div className="px-2 py-1.5 text-sm font-semibold">Activities</div>
+            {activities.map((activity) => (
+              <SelectItem key={activity.id} value={activity.id.toString()}>
+                <div className="flex items-center">
+                  <div 
+                    className="w-2 h-2 rounded-full mr-2"
+                    style={{ backgroundColor: `hsl(var(--${activity.parentColor}))` }}
+                  ></div>
+                  {activity.title}
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -110,7 +153,7 @@ export default function Sessions() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all-time">All time</SelectItem>
-            <SelectItem value="custom">Custom range</SelectItem>
+            <SelectItem value="custom">Custom date</SelectItem>
           </SelectContent>
         </Select>
 
@@ -147,7 +190,7 @@ export default function Sessions() {
           <div className="flex items-center mt-2 sm:mt-0">
             {selectedDateRange === "custom" && date && (
               <Badge variant="secondary" className="flex items-center gap-1 mr-2">
-                From {format(date, "MMM d")}
+                On {format(date, "MMM d, yyyy")}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -182,38 +225,75 @@ export default function Sessions() {
               <div className="col-span-2">Date</div>
               <div className="col-span-3">Activity</div>
               <div className="col-span-2">Duration</div>
-              <div className="col-span-2">Time</div>
-              <div className="col-span-2">Notes</div>
-              <div className="col-span-1 text-right">Actions</div>
+              <div className="col-span-3">Notes</div>
+              <div className="col-span-2 text-right">Actions</div>
             </div>
           </div>
           <div>
-            {sessions.map((session) => (
-              <div key={session.id} className="grid grid-cols-12 px-4 py-4 border-b items-center">
-                <div className="col-span-2 text-sm">{format(session.date, "MMM d, yyyy")}</div>
-                <div className="col-span-3 flex items-center">
-                  <div className={`w-2 h-2 rounded-full bg-${session.color}-500 mr-2`}></div>
-                  <span>{session.activity}</span>
+            {filteredSessions.length > 0 ? (
+              filteredSessions.map((session) => (
+                <div key={session.id} className="grid grid-cols-12 px-4 py-4 border-b items-center">
+                  <div className="col-span-2 text-sm">{format(session.date, "MMM d, yyyy")}</div>
+                  <div className="col-span-3 flex items-center">
+                    <div 
+                      className="w-2 h-2 rounded-full mr-2"
+                      style={{ backgroundColor: `hsl(var(--${session.parentColor}))` }}
+                    ></div>
+                    <div>
+                      <div>{session.activityTitle}</div>
+                      <div className="text-xs text-muted-foreground">{session.parentTitle}</div>
+                    </div>
+                  </div>
+                  <div className="col-span-2 text-sm">{session.formattedDuration}</div>
+                  <div className="col-span-3 text-sm text-muted-foreground line-clamp-2">{session.notes}</div>
+                  <div className="col-span-2 flex justify-end">
+                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => setSelectedSessionForDeletion(session)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Session</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this session? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setSelectedSessionForDeletion(null)}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteSession}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-                <div className="col-span-2 text-sm">{session.duration}</div>
-                <div className="col-span-2 text-sm">{session.timeRange}</div>
-                <div className="col-span-2 text-sm text-muted-foreground">{session.notes}</div>
-                <div className="col-span-1 flex justify-end">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H3.5C3.22386 4 3 3.77614 3 3.5ZM0 5.5C0 5.22386 0.223858 5 0.5 5H14.5C14.7761 5 15 5.22386 15 5.5C15 5.77614 14.7761 6 14.5 6H0.5C0.223858 6 0 5.77614 0 5.5ZM2 8.5C2 8.22386 2.22386 8 2.5 8H12.5C12.7761 8 13 8.22386 13 8.5C13 8.77614 12.7761 9 12.5 9H2.5C2.22386 9 2 8.77614 2 8.5ZM3 11.5C3 11.2239 3.22386 11 3.5 11H11.5C11.7761 11 12 11.2239 12 11.5C12 11.7761 11.7761 12 11.5 12H3.5C3.22386 12 3 11.7761 3 11.5ZM4 14.5C4 14.2239 4.22386 14 4.5 14H10.5C10.7761 14 11 14.2239 11 14.5C11 14.7761 10.7761 15 10.5 15H4.5C4.22386 15 4 14.7761 4 14.5Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
-                    </svg>
-                  </Button>
+              ))
+            ) : (
+              <div className="flex justify-center items-center py-8 text-center">
+                <div className="flex flex-col items-center">
+                  <AlertCircle className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-lg font-medium">No sessions found</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {selectedActivity !== "all" || selectedDateRange !== "all-time" 
+                      ? "Try changing your filters" 
+                      : "Start a timer session to track your progress"}
+                  </p>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
-      
-      <div className="w-full text-center text-sm text-muted-foreground mt-4">
-        A list of your recent coding sessions
-      </div>
     </div>
   )
 }
