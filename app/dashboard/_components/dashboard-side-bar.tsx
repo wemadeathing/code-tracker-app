@@ -6,7 +6,10 @@ import {
   Banknote,
   Folder,
   HomeIcon,
-  Settings
+  Settings,
+  Code,
+  Clock,
+  Timer
 } from "lucide-react"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -36,6 +39,46 @@ export default function DashboardSideBar() {
               </div>
               Home
             </Link>
+            
+            {/* New Coding Activities Link */}
+            <Link
+              className={clsx("flex items-center gap-2 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50", {
+                "flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-900  transition-all hover:text-gray-900 dark:bg-gray-800 dark:text-gray-50 dark:hover:text-gray-50": pathname === "/dashboard/coding-activities"
+              })}
+              href="/dashboard/coding-activities"
+            >
+              <div className="border rounded-lg dark:bg-black dark:border-gray-800 border-gray-400 p-1 bg-white">
+                <Code className="h-3 w-3" />
+              </div>
+              Coding Activities
+            </Link>
+            
+            {/* New Sessions Link */}
+            <Link
+              className={clsx("flex items-center gap-2 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50", {
+                "flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-900  transition-all hover:text-gray-900 dark:bg-gray-800 dark:text-gray-50 dark:hover:text-gray-50": pathname === "/dashboard/sessions"
+              })}
+              href="/dashboard/sessions"
+            >
+              <div className="border rounded-lg dark:bg-black dark:border-gray-800 border-gray-400 p-1 bg-white">
+                <Clock className="h-3 w-3" />
+              </div>
+              Sessions
+            </Link>
+            
+            {/* New Timer Link */}
+            <Link
+              className={clsx("flex items-center gap-2 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50", {
+                "flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-900  transition-all hover:text-gray-900 dark:bg-gray-800 dark:text-gray-50 dark:hover:text-gray-50": pathname === "/dashboard/timer"
+              })}
+              href="/dashboard/timer"
+            >
+              <div className="border rounded-lg dark:bg-black dark:border-gray-800 border-gray-400 p-1 bg-white">
+                <Timer className="h-3 w-3" />
+              </div>
+              Timer
+            </Link>
+            
             <Link
               className={clsx("flex items-center gap-2 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50", {
                 "flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-gray-900  transition-all hover:text-gray-900 dark:bg-gray-800 dark:text-gray-50 dark:hover:text-gray-50": pathname === "/dashboard/projects"
