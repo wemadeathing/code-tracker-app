@@ -82,12 +82,35 @@ export default function ProjectsPage() {
 
   // Navigate to activities page filtered by this project
   const viewProjectActivities = (project: ProjectType) => {
-    router.push(`/dashboard/activities?parent=project-${project.id}`)
+    router.push(`/dashboard/activities?parent=project-${project.id}&parentType=project`)
   }
 
   // Navigate to add activity page with this project pre-selected
   const addActivityToProject = (project: ProjectType) => {
-    router.push(`/dashboard/activities?new=1&parent=project-${project.id}`)
+    router.push(`/dashboard/activities?new=1&parent=project-${project.id}&parentType=project`)
+  }
+  
+  // Start timer for the first activity in this project
+  const startProjectActivity = (project: ProjectType) => {
+    const projectActivities = activities.filter(
+      activity => activity.parentType === 'project' && activity.parentId === project.id
+    )
+    
+    if (projectActivities.length > 0) {
+      // Navigate to timer page with the first activity
+      router.push(`/dashboard/timer?activity=${projectActivities[0].id}`)
+    } else {
+      // If no activities, redirect to create a new one
+      addActivityToProject(project)
+    }
+  }
+
+  // Helper to format time display
+  const formatTime = (seconds: number): string => {
+    if (seconds === 0) return '0h 0m';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
   }
 
   return (
@@ -243,36 +266,33 @@ export default function ProjectsPage() {
                     </div>
                     <div className="flex items-center">
                       <Clock className="h-4 w-4 mr-1" />
-                      <span>{stats.totalTime > 0 ? `${Math.floor(stats.totalTime / 3600)}h ${Math.floor((stats.totalTime % 3600) / 60)}m` : '0h 0m'}</span>
+                      <span>{formatTime(stats.totalTime)}</span>
                     </div>
                   </div>
                   {stats.activitiesCount > 0 ? (
                     <div className="flex gap-2 w-full">
                       <Button 
                         variant="default" 
-                        className="w-full" 
-                        size="sm"
-                        onClick={() => viewProjectActivities(project)}
+                        className="flex-1 h-9 flex items-center justify-center gap-2" 
+                        onClick={() => startProjectActivity(project)}
                       >
-                        <Play className="h-4 w-4 mr-1" /> Start Activities
+                        <Play className="h-5 w-5" /> Start
                       </Button>
                       <Button 
                         variant="outline" 
-                        className="w-full" 
-                        size="sm"
+                        className="flex-1 h-9 flex items-center justify-center gap-2" 
                         onClick={() => viewProjectActivities(project)}
                       >
-                        <List className="h-4 w-4 mr-1" /> View All
+                        <List className="h-5 w-5" /> Activities
                       </Button>
                     </div>
                   ) : (
                     <Button 
                       variant="default" 
-                      className="w-full" 
-                      size="sm"
+                      className="w-full h-9 flex items-center justify-center gap-2" 
                       onClick={() => addActivityToProject(project)}
                     >
-                      <Plus className="h-4 w-4 mr-1" /> Add First Activity
+                      <Plus className="h-5 w-5" /> Add First Activity
                     </Button>
                   )}
                 </CardFooter>

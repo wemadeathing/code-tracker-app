@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Plus, Search, MoreHorizontal, Clock, Folder, Play, History } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,70 +16,225 @@ import { cn } from '@/lib/utils'
 import { TimerDialog } from '@/components/timer-dialog'
 import { LogTimeDialog } from '@/components/log-time-dialog'
 import { useAppContext, ActivityType } from '@/contexts/app-context'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+// Activity Card Component
+interface ActivityCardProps {
+  activity: ActivityType;
+  onStartTimer: (activity: ActivityType) => void;
+  onLogPastTime: (activity: ActivityType) => void;
+  onViewSessions: () => void;
+  onDelete: (id: number) => void;
+}
+
+const ActivityCard: React.FC<ActivityCardProps> = ({ 
+  activity, 
+  onStartTimer, 
+  onLogPastTime, 
+  onViewSessions, 
+  onDelete 
+}) => {
+  const formatTime = (seconds: number): string => {
+    if (seconds === 0) return '0h 0m';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <div 
+        className="w-full h-2" 
+        style={{ backgroundColor: `hsl(var(--${activity.parentColor}))` }}
+        aria-hidden="true"
+      />
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-xl">{activity.title}</CardTitle>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Activity actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => onStartTimer(activity)}>
+                Start Timer
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onLogPastTime(activity)}>
+                Log Past Time
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onViewSessions}>View Sessions</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => {}}>Edit Activity</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive"
+                onSelect={() => onDelete(activity.id)}
+              >
+                Delete Activity
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4">
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {activity.description}
+          </p>
+        </div>
+        <div className="flex items-center">
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "flex items-center gap-1",
+              activity.parentColor && `border-${activity.parentColor} text-${activity.parentColor}`
+            )}
+          >
+            <Folder className="h-3 w-3" />
+            <span>{activity.parentTitle}</span>
+          </Badge>
+        </div>
+      </CardContent>
+      <CardFooter className="border-t pt-4 flex flex-col gap-3">
+        <div className="flex justify-between w-full text-muted-foreground text-sm">
+          <span>Sessions: {activity.sessions.length}</span>
+          <div className="flex items-center">
+            <Clock className="h-4 w-4 mr-1" />
+            <span>{formatTime(activity.totalSeconds)}</span>
+          </div>
+        </div>
+        <div className="flex gap-2 w-full">
+          <Button 
+            variant="default" 
+            className="w-full" 
+            size="sm"
+            onClick={() => onStartTimer(activity)}
+          >
+            <Play className="h-4 w-4 mr-1" /> Start Timer
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            size="sm"
+            onClick={() => onLogPastTime(activity)}
+          >
+            <History className="h-4 w-4 mr-1" /> Log Time
+          </Button>
+        </div>
+      </CardFooter>
+    </Card>
+  );
+};
 
 export default function ActivitiesPage() {
   const { 
     courses, 
-    projects, 
+    projects,
     activities, 
     addActivity, 
     updateActivity, 
     deleteActivity,
-    addTimeToActivity,
-    formatTimeFromSeconds
+    addTimeToActivity
   } = useAppContext()
   
   const [searchQuery, setSearchQuery] = useState('')
-  const [isAddActivityOpen, setIsAddActivityOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<string>('all')
-  
+  const [isAddActivityOpen, setIsAddActivityOpen] = useState(false)
   const [newActivityTitle, setNewActivityTitle] = useState('')
   const [newActivityDescription, setNewActivityDescription] = useState('')
-  const [newActivityParent, setNewActivityParent] = useState<string>('')
+  const [newActivityParent, setNewActivityParent] = useState('')
   
   // Timer state
   const [isTimerOpen, setIsTimerOpen] = useState(false)
   const [isLogTimeOpen, setIsLogTimeOpen] = useState(false)
   const [currentActivity, setCurrentActivity] = useState<ActivityType | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Check for query parameters on page load
+  useEffect(() => {
+    // Check if we should open the add activity dialog with a pre-selected parent
+    const newParam = searchParams.get('new')
+    const parentParam = searchParams.get('parent')
+    
+    if (newParam === '1' && parentParam) {
+      setIsAddActivityOpen(true)
+      setNewActivityParent(parentParam)
+    }
+    
+    // Handle filtered tab selection based on parent parameter
+    if (parentParam) {
+      setActiveTab(parentParam)
+      
+      // If it's a specific course or project, set it as the active tab
+      if (parentParam.startsWith('course-') || parentParam.startsWith('project-')) {
+        setActiveTab(parentParam)
+      } else if (parentParam === 'courses' || parentParam === 'projects') {
+        setActiveTab(parentParam)
+      }
+    }
+  }, [searchParams])
 
   // Combine courses and projects for the parent selector
   const parentItems = useMemo(() => {
-    const courseItems = courses.map(course => ({
-      id: course.id,
+    const courseOptions = courses.map(course => ({
+      id: `course-${course.id}`,
       title: course.title,
-      type: 'course' as const,
+      type: 'course',
       color: course.color
-    }));
+    }))
     
-    const projectItems = projects.map(project => ({
-      id: project.id,
+    const projectOptions = projects.map(project => ({
+      id: `project-${project.id}`,
       title: project.title,
-      type: 'project' as const,
+      type: 'project',
       color: project.color
-    }));
+    }))
     
-    return [...courseItems, ...projectItems];
-  }, [courses, projects]);
+    return [...courseOptions, ...projectOptions]
+  }, [courses, projects])
 
-  // Filter activities based on search and tab
-  const filteredActivities = activities.filter(activity => {
-    const matchesSearch = 
-      activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      activity.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      activity.parentTitle.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'courses') return matchesSearch && activity.parentType === 'course';
-    if (activeTab === 'projects') return matchesSearch && activity.parentType === 'project';
-    
-    return matchesSearch;
-  });
+  // Helper to format time display
+  const formatTime = (seconds: number): string => {
+    if (seconds === 0) return '0h 0m';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+
+  // Filter activities based on search and active tab
+  const filteredActivities = useMemo(() => {
+    const result = activities.filter(activity => {
+      // Text search filter
+      const matchesSearch = 
+        activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        activity.description.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      // Tab filter
+      let matchesTab = activeTab === 'all'
+      
+      if (activeTab.startsWith('course-')) {
+        const courseId = parseInt(activeTab.replace('course-', ''))
+        matchesTab = activity.parentType === 'course' && activity.parentId === courseId
+      } else if (activeTab.startsWith('project-')) {
+        const projectId = parseInt(activeTab.replace('project-', ''))
+        matchesTab = activity.parentType === 'project' && activity.parentId === projectId
+      } else if (activeTab === 'courses') {
+        matchesTab = activity.parentType === 'course'
+      } else if (activeTab === 'projects') {
+        matchesTab = activity.parentType === 'project'
+      }
+      
+      return matchesSearch && matchesTab
+    })
+
+    console.log('Filtered Activities:', result); // Debugging log
+    return result;
+  }, [activities, searchQuery, activeTab])
 
   // Handler for adding a new activity
   const handleAddActivity = () => {
-    if (!newActivityTitle.trim() || !newActivityParent) return;
+    if (!newActivityTitle.trim() || !newActivityParent || newActivityParent === 'none') return;
     
     const [parentType, parentIdStr] = newActivityParent.split('-');
     const parentId = parseInt(parentIdStr, 10);
@@ -224,43 +379,32 @@ export default function ActivitiesPage() {
                     value={newActivityParent}
                     onValueChange={setNewActivityParent}
                   >
-                    <SelectTrigger id="parent" className="col-span-3">
+                    <SelectTrigger className="col-span-3" id="parent">
                       <SelectValue placeholder="Select a course or project" />
                     </SelectTrigger>
                     <SelectContent>
-                      <div className="mb-2">
-                        <p className="px-2 text-sm font-medium">Courses</p>
-                      </div>
-                      {parentItems
-                        .filter(item => item.type === 'course')
-                        .map(course => (
-                          <SelectItem key={`course-${course.id}`} value={`course-${course.id}`}>
-                            {course.title}
-                          </SelectItem>
-                        ))
-                      }
-                      <div className="mb-2 mt-3">
-                        <p className="px-2 text-sm font-medium">Projects</p>
-                      </div>
-                      {parentItems
-                        .filter(item => item.type === 'project')
-                        .map(project => (
-                          <SelectItem key={`project-${project.id}`} value={`project-${project.id}`}>
-                            {project.title}
-                          </SelectItem>
-                        ))
-                      }
+                      <SelectItem value="none">None</SelectItem>
+                      {parentItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.title} ({item.type})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddActivityOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  setIsAddActivityOpen(false);
+                  setNewActivityTitle('');
+                  setNewActivityDescription('');
+                  setNewActivityParent('');
+                }}>
                   Cancel
                 </Button>
                 <Button 
                   onClick={handleAddActivity}
-                  disabled={!newActivityTitle.trim() || !newActivityParent}
+                  disabled={!newActivityTitle.trim()}
                 >
                   Create Activity
                 </Button>
@@ -271,100 +415,49 @@ export default function ActivitiesPage() {
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="all">All Activities</TabsTrigger>
-          <TabsTrigger value="courses">Course Activities</TabsTrigger>
-          <TabsTrigger value="projects">Project Activities</TabsTrigger>
+        <TabsList className="mb-4">
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="courses">Courses</TabsTrigger>
+          <TabsTrigger value="projects">Projects</TabsTrigger>
+          {/* Removed individual course/project tabs to reduce cognitive overload */}
         </TabsList>
+
+        <TabsContent value="all">
+          {/* Content for the All tab */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredActivities.map((activity) => (
+              <ActivityCard 
+                key={activity.id} 
+                activity={activity} 
+                onStartTimer={handleStartTimer}
+                onLogPastTime={handleLogPastTime}
+                onViewSessions={navigateToSessions}
+                onDelete={handleDeleteActivity}
+              />
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Content for other tabs */}
+        {['courses', 'projects'].map(tabId => (
+          <TabsContent key={tabId} value={tabId}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredActivities.map((activity) => (
+                <ActivityCard 
+                  key={activity.id} 
+                  activity={activity} 
+                  onStartTimer={handleStartTimer}
+                  onLogPastTime={handleLogPastTime}
+                  onViewSessions={navigateToSessions}
+                  onDelete={handleDeleteActivity}
+                />
+              ))}
+            </div>
+          </TabsContent>
+        ))}
       </Tabs>
 
-      {filteredActivities.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredActivities.map((activity) => (
-            <Card key={activity.id} className="overflow-hidden">
-              <div 
-                className="w-full h-2" 
-                style={{ backgroundColor: `hsl(var(--${activity.parentColor}))` }}
-                aria-hidden="true"
-              />
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl">{activity.title}</CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Activity actions">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => handleStartTimer(activity)}>
-                        Start Timer
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => handleLogPastTime(activity)}>
-                        Log Past Time
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={navigateToSessions}>View Sessions</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => {}}>Edit Activity</DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onSelect={() => handleDeleteActivity(activity.id)}
-                      >
-                        Delete Activity
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {activity.description}
-                  </p>
-                </div>
-                <div className="flex items-center">
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "flex items-center gap-1",
-                      activity.parentColor && `border-${activity.parentColor} text-${activity.parentColor}`
-                    )}
-                  >
-                    <Folder className="h-3 w-3" />
-                    <span>{activity.parentTitle}</span>
-                  </Badge>
-                </div>
-              </CardContent>
-              <CardFooter className="border-t pt-4 flex flex-col gap-3">
-                <div className="flex justify-between w-full text-muted-foreground text-sm">
-                  <span>Sessions: {activity.sessions.length}</span>
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-1" />
-                    <span>{activity.totalTime || '0h 0m'}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2 w-full">
-                  <Button 
-                    variant="default" 
-                    className="w-full" 
-                    size="sm"
-                    onClick={() => handleStartTimer(activity)}
-                  >
-                    <Play className="h-4 w-4 mr-1" /> Start Timer
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full" 
-                    size="sm"
-                    onClick={() => handleLogPastTime(activity)}
-                  >
-                    <History className="h-4 w-4 mr-1" /> Log Time
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : (
+      {filteredActivities.length === 0 && (
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed h-[60vh]">
           <div className="flex flex-col items-center text-center">
             <h2 className="text-xl font-semibold mb-2">No activities found</h2>
