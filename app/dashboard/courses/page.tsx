@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, Search, MoreHorizontal, Clock, BookOpen } from 'lucide-react'
+import { Plus, Search, MoreHorizontal, BookOpen, Clock } from 'lucide-react'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -10,50 +10,22 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-
-type Course = {
-  id: number
-  title: string
-  description: string
-  totalActivities: number
-  totalTime: string
-  color: string
-}
+import { useAppContext, CourseType } from '@/contexts/app-context'
 
 export default function CoursesPage() {
+  const { 
+    courses, 
+    addCourse, 
+    updateCourse, 
+    deleteCourse,
+    activities
+  } = useAppContext()
+
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false)
   const [newCourseTitle, setNewCourseTitle] = useState('')
   const [newCourseDescription, setNewCourseDescription] = useState('')
   const [newCourseColor, setNewCourseColor] = useState('blue')
-
-  // Dummy courses data
-  const [courses, setCourses] = useState<Course[]>([
-    {
-      id: 1,
-      title: 'Learn Python',
-      description: 'Complete Python programming from basics to advanced concepts',
-      totalActivities: 5,
-      totalTime: '24h 30m',
-      color: 'green'
-    },
-    {
-      id: 2,
-      title: 'Advanced JavaScript',
-      description: 'Master JavaScript with modern ES6+ features',
-      totalActivities: 3,
-      totalTime: '12h 15m',
-      color: 'yellow'
-    },
-    {
-      id: 3,
-      title: 'Web Development Bootcamp',
-      description: 'Full-stack web development with the latest technologies',
-      totalActivities: 8,
-      totalTime: '48h 45m',
-      color: 'blue'
-    }
-  ])
 
   const colorOptions = [
     { name: 'Red', value: 'red' },
@@ -72,20 +44,36 @@ export default function CoursesPage() {
   const handleAddCourse = () => {
     if (!newCourseTitle.trim()) return
 
-    const newCourse: Course = {
-      id: courses.length + 1,
+    addCourse({
       title: newCourseTitle,
       description: newCourseDescription,
-      totalActivities: 0,
-      totalTime: '0h 0m',
       color: newCourseColor
-    }
+    })
 
-    setCourses([...courses, newCourse])
     setNewCourseTitle('')
     setNewCourseDescription('')
     setNewCourseColor('blue')
     setIsAddCourseOpen(false)
+  }
+
+  const handleDeleteCourse = (id: number) => {
+    deleteCourse(id)
+  }
+
+  // Calculate course stats
+  const getCourseStats = (courseId: number) => {
+    const courseActivities = activities.filter(
+      activity => activity.parentType === 'course' && activity.parentId === courseId
+    )
+    
+    const totalTimeSeconds = courseActivities.reduce(
+      (total, activity) => total + activity.totalSeconds, 0
+    )
+    
+    return {
+      activitiesCount: courseActivities.length,
+      totalTime: courseActivities.length ? totalTimeSeconds : 0
+    }
   }
 
   return (
@@ -101,11 +89,12 @@ export default function CoursesPage() {
               className="pl-8 w-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search courses"
             />
           </div>
           <Dialog open={isAddCourseOpen} onOpenChange={setIsAddCourseOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button aria-label="Add new course">
                 <Plus className="mr-2 h-4 w-4" />
                 New Course
               </Button>
@@ -128,6 +117,8 @@ export default function CoursesPage() {
                     className="col-span-3"
                     value={newCourseTitle}
                     onChange={(e) => setNewCourseTitle(e.target.value)}
+                    required
+                    aria-required="true"
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -143,10 +134,10 @@ export default function CoursesPage() {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="color" className="text-right">
+                  <Label htmlFor="color-selection" className="text-right">
                     Color
                   </Label>
-                  <div className="col-span-3 flex gap-2">
+                  <div id="color-selection" className="col-span-3 flex gap-2" role="radiogroup" aria-labelledby="color-selection-label">
                     {colorOptions.map((color) => (
                       <div
                         key={color.value}
@@ -154,8 +145,18 @@ export default function CoursesPage() {
                           "w-8 h-8 rounded-full cursor-pointer border-2",
                           newCourseColor === color.value ? "border-black dark:border-white" : "border-transparent"
                         )}
-                        style={{ backgroundColor: `var(--${color.value})` }}
+                        style={{ backgroundColor: `hsl(var(--${color.value}))` }}
                         onClick={() => setNewCourseColor(color.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setNewCourseColor(color.value);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="radio"
+                        aria-checked={newCourseColor === color.value}
+                        aria-label={color.name}
                       />
                     ))}
                   </div>
@@ -165,7 +166,12 @@ export default function CoursesPage() {
                 <Button variant="outline" onClick={() => setIsAddCourseOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddCourse}>Create Course</Button>
+                <Button 
+                  onClick={handleAddCourse}
+                  disabled={!newCourseTitle.trim()}
+                >
+                  Create Course
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -174,46 +180,56 @@ export default function CoursesPage() {
 
       {filteredCourses.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCourses.map((course) => (
-            <Card key={course.id} className="overflow-hidden">
-              <div className={`w-full h-2 bg-${course.color}-500`} />
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl">{course.title}</CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>View Details</DropdownMenuItem>
-                      <DropdownMenuItem>Add Activity</DropdownMenuItem>
-                      <DropdownMenuItem>Edit Course</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        Delete Course
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                  {course.description}
-                </p>
-              </CardContent>
-              <CardFooter className="flex justify-between pt-2 text-muted-foreground text-sm border-t">
-                <div className="flex items-center">
-                  <BookOpen className="h-4 w-4 mr-1" />
-                  {course.totalActivities} Activities
-                </div>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-1" />
-                  {course.totalTime}
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+          {filteredCourses.map((course) => {
+            const stats = getCourseStats(course.id)
+            return (
+              <Card key={course.id} className="overflow-hidden">
+                <div 
+                  className="w-full h-2" 
+                  style={{ backgroundColor: `hsl(var(--${course.color}))` }}
+                  aria-hidden="true"
+                />
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-xl">{course.title}</CardTitle>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Course actions">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => {}}>View Details</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => {}}>Add Activity</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => {}}>Edit Course</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onSelect={() => handleDeleteCourse(course.id)}
+                        >
+                          Delete Course
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                    {course.description}
+                  </p>
+                </CardContent>
+                <CardFooter className="flex justify-between pt-2 text-muted-foreground text-sm border-t">
+                  <div className="flex items-center">
+                    <BookOpen className="h-4 w-4 mr-1" />
+                    <span>{stats.activitiesCount} Activities</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-1" />
+                    <span>{stats.totalTime > 0 ? `${Math.floor(stats.totalTime / 3600)}h ${Math.floor((stats.totalTime % 3600) / 60)}m` : '0h 0m'}</span>
+                  </div>
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed h-[60vh]">

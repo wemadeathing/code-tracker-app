@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/react"
 import { GeistSans } from 'geist/font/sans'
 import type { Metadata } from 'next'
 import './globals.css'
+import { AppProvider } from '@/contexts/app-context'
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://starter.rasmic.xyz"),
@@ -58,8 +59,10 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
-              {children}
-              <Toaster />
+              <AppProvider>
+                {children}
+                <Toaster />
+              </AppProvider>
             </ThemeProvider>
           </Provider>
           <Analytics />
