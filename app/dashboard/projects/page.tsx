@@ -270,17 +270,17 @@ export default function ProjectsPage() {
                     </div>
                   </div>
                   {stats.activitiesCount > 0 ? (
-                    <div className="flex gap-2 w-full">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                       <Button 
                         variant="default" 
-                        className="flex-1 h-9 flex items-center justify-center gap-2" 
+                        className="h-9 flex items-center justify-center gap-2" 
                         onClick={() => startProjectActivity(project)}
                       >
                         <Play className="h-5 w-5" /> Start
                       </Button>
                       <Button 
                         variant="outline" 
-                        className="flex-1 h-9 flex items-center justify-center gap-2" 
+                        className="h-9 flex items-center justify-center gap-2" 
                         onClick={() => viewProjectActivities(project)}
                       >
                         <List className="h-5 w-5" /> Activities

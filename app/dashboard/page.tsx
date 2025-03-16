@@ -181,136 +181,138 @@ export default function Dashboard() {
         </div>
       </div>
       
-      <div className="flex flex-wrap w-full gap-4 mt-2">
-        {/* Stats Cards */}
-        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Today</CardTitle>
-            <div className="rounded-full bg-primary/10 p-2">
-              <Clock className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pt-2 pb-4">
-            <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.today)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Coded Today
-            </p>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col w-full gap-4 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+          {/* Stats Cards */}
+          <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Today</CardTitle>
+              <div className="rounded-full bg-primary/10 p-2">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pt-2 pb-4">
+              <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.today)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Coded Today
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
-            <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
-            <div className="rounded-full bg-primary/10 p-2">
-              <Calendar className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pt-2 pb-4">
-            <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.week)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Coded This Week
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+              <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
+              <div className="rounded-full bg-primary/10 p-2">
+                <Calendar className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pt-2 pb-4">
+              <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.week)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Coded This Week
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
-            <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
-            <div className="rounded-full bg-primary/10 p-2">
-              <Calendar className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pt-2 pb-4">
-            <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.month)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Coded This Month
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+              <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
+              <div className="rounded-full bg-primary/10 p-2">
+                <Calendar className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pt-2 pb-4">
+              <div className="text-3xl font-bold tracking-tight">{formatTimeFromSeconds(stats.month)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Coded This Month
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="flex-1 min-w-[200px] overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Current Streak</CardTitle>
-            <div className="rounded-full bg-primary/10 p-2">
-              <Flame className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pt-2 pb-4">
-            <div className="text-3xl font-bold tracking-tight">{stats.streak} days</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Consecutive days coding
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="overflow-hidden border-none shadow-md bg-gradient-to-br from-background to-background/80">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 pt-4 px-5">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Current Streak</CardTitle>
+              <div className="rounded-full bg-primary/10 p-2">
+                <Flame className="h-4 w-4 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pt-2 pb-4">
+              <div className="text-3xl font-bold tracking-tight">{stats.streak} days</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Consecutive days coding
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Coding Activity Chart */}
-      <ActivityChart 
-        activities={activities} 
-        period={selectedTab} 
-        onPeriodChange={setSelectedTab} 
-        className="w-full mt-6"
-      />
+        {/* Coding Activity Chart */}
+        <ActivityChart 
+          activities={activities} 
+          period={selectedTab} 
+          onPeriodChange={setSelectedTab} 
+          className="w-full mt-6"
+        />
 
-      {/* Recent Sessions and Activity Progress */}
-      <div className="grid md:grid-cols-2 gap-4 w-full mt-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Sessions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentSessions.length > 0 ? (
-                recentSessions.map((session, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(var(--${session.activityColor}))` }}></div>
-                      <div>
-                        <div className="font-medium">{session.activityTitle}</div>
-                        <div className="text-xs text-muted-foreground">{format(new Date(session.date), 'dd/MM/yyyy')}</div>
+        {/* Recent Sessions and Activity Progress */}
+        <div className="grid md:grid-cols-2 gap-4 w-full mt-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Sessions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentSessions.length > 0 ? (
+                  recentSessions.map((session, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(var(--${session.activityColor}))` }}></div>
+                        <div>
+                          <div className="font-medium">{session.activityTitle}</div>
+                          <div className="text-xs text-muted-foreground">{format(new Date(session.date), 'dd/MM/yyyy')}</div>
+                        </div>
+                      </div>
+                      <div className="text-sm">{formatTimeFromSeconds(session.duration)}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    No recent sessions recorded
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Activity Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {topActivities.length > 0 ? (
+                  topActivities.map(activity => (
+                    <div key={activity.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(var(--${activity.parentColor}))` }}></div>
+                        <div className="font-medium">{activity.title}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm">{activity.totalTime}</div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                          <Clock className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="text-sm">{formatTimeFromSeconds(session.duration)}</div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    No activities recorded
                   </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  No recent sessions recorded
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {topActivities.length > 0 ? (
-                topActivities.map(activity => (
-                  <div key={activity.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(var(--${activity.parentColor}))` }}></div>
-                      <div className="font-medium">{activity.title}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm">{activity.totalTime}</div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Clock className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  No activities recorded
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
