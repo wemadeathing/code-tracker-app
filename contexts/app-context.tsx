@@ -22,14 +22,14 @@ import {
 export type CourseType = {
   id: number
   title: string
-  description: string
+  description: string | null
   color: string
 }
 
 export type ProjectType = {
   id: number
   title: string
-  description: string
+  description: string | null
   totalActivities?: number
   totalTime?: string
   color: string
@@ -38,7 +38,7 @@ export type ProjectType = {
 export type ActivityType = {
   id: number
   title: string
-  description: string
+  description: string | null
   parentType: 'course' | 'project'
   parentId: number
   parentTitle: string
@@ -50,33 +50,33 @@ export type ActivityType = {
     id?: number
     duration: number
     date: Date
-    notes: string
+    notes: string | null
   }>
 }
 
 type AppContextType = {
   // Courses state and methods
   courses: CourseType[]
-  addCourse: (course: Omit<CourseType, 'id'>) => Promise<void>
-  updateCourse: (id: number, course: Partial<CourseType>) => Promise<void>
-  deleteCourse: (id: number) => Promise<void>
+  addCourse: (course: Omit<CourseType, 'id'>) => Promise<{ success: boolean, error?: string }>
+  updateCourse: (id: number, course: Partial<CourseType>) => Promise<{ success: boolean, error?: string }>
+  deleteCourse: (id: number) => Promise<{ success: boolean, error?: string }>
   
   // Projects state and methods
   projects: ProjectType[]
-  addProject: (project: Omit<ProjectType, 'id'>) => Promise<void>
-  updateProject: (id: number, project: Partial<ProjectType>) => Promise<void>
-  deleteProject: (id: number) => Promise<void>
+  addProject: (project: Omit<ProjectType, 'id'>) => Promise<{ success: boolean, error?: string }>
+  updateProject: (id: number, project: Partial<ProjectType>) => Promise<{ success: boolean, error?: string }>
+  deleteProject: (id: number) => Promise<{ success: boolean, error?: string }>
   
   // Activities state and methods
   activities: ActivityType[]
-  addActivity: (activity: Omit<ActivityType, 'id'>) => Promise<void>
-  updateActivity: (id: number, activity: Partial<ActivityType>) => Promise<void>
-  deleteActivity: (id: number) => Promise<void>
+  addActivity: (activity: Omit<ActivityType, 'id'>) => Promise<{ success: boolean, error?: string }>
+  updateActivity: (id: number, activity: Partial<ActivityType>) => Promise<{ success: boolean, error?: string }>
+  deleteActivity: (id: number) => Promise<{ success: boolean, error?: string }>
   
   // Timer functionality
   startActivityTimer: (activityId: number) => void
-  addTimeToActivity: (activityId: number, seconds: number, notes: string) => Promise<void>
-  deleteSessionFromActivity: (activityId: number, sessionIndex: number) => Promise<void>
+  addTimeToActivity: (activityId: number, seconds: number, notes: string, date?: Date) => Promise<void>
+  deleteSessionFromActivity: (activityId: number, sessionIndex: number) => Promise<{ success: boolean, error?: string }>
   
   // Utility methods
   formatTimeFromSeconds: (seconds: number) => string
@@ -85,23 +85,23 @@ type AppContextType = {
 // Default context value
 const defaultContextValue: AppContextType = {
   courses: [],
-  addCourse: async () => {},
-  updateCourse: async () => {},
-  deleteCourse: async () => {},
+  addCourse: async () => ({ success: false }),
+  updateCourse: async () => ({ success: false }),
+  deleteCourse: async () => ({ success: false }),
   
   projects: [],
-  addProject: async () => {},
-  updateProject: async () => {},
-  deleteProject: async () => {},
+  addProject: async () => ({ success: false }),
+  updateProject: async () => ({ success: false }),
+  deleteProject: async () => ({ success: false }),
   
   activities: [],
-  addActivity: async () => {},
-  updateActivity: async () => {},
-  deleteActivity: async () => {},
+  addActivity: async () => ({ success: false }),
+  updateActivity: async () => ({ success: false }),
+  deleteActivity: async () => ({ success: false }),
   
   startActivityTimer: () => {},
   addTimeToActivity: async () => {},
-  deleteSessionFromActivity: async () => {},
+  deleteSessionFromActivity: async () => ({ success: false }),
   
   formatTimeFromSeconds: () => '',
 }
@@ -174,9 +174,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       })
       if (newCourse) {
         setCourses(prevCourses => [...prevCourses, newCourse as CourseType])
+        return { success: true }
       }
+      return { success: false, error: 'Failed to add course' }
     } catch (error) {
       console.error('Error adding course:', error)
+      // Return error information for UI feedback
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
@@ -191,18 +198,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCourses(prevCourses => 
           prevCourses.map(c => c.id === id ? { ...c, ...course } : c)
         )
+        return { success: true }
       }
+      return { success: false, error: 'Failed to update course' }
     } catch (error) {
       console.error('Error updating course:', error)
+      // Return error information for UI feedback
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
   const deleteCourse = async (id: number) => {
     try {
-      await deleteCourseAction(id)
-      setCourses(prevCourses => prevCourses.filter(c => c.id !== id))
+      const result = await deleteCourseAction(id)
+      if (result.success) {
+        setCourses(prevCourses => prevCourses.filter(c => c.id !== id))
+        return { success: true }
+      }
+      return { success: false, error: 'Failed to delete course' }
     } catch (error) {
       console.error('Error deleting course:', error)
+      // Return error information for UI feedback
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
@@ -322,7 +345,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setTimerStart(new Date())
   }
 
-  const addTimeToActivity = async (activityId: number, seconds: number, notes: string) => {
+  const addTimeToActivity = async (activityId: number, seconds: number, notes: string, date?: Date) => {
     try {
       // Reset timer state
       setActiveActivityId(null)
@@ -333,7 +356,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         activityId, 
         { 
           duration: seconds, 
-          notes 
+          notes,
+          date
         }
       )
       
@@ -353,7 +377,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
                   {
                     id: session.id,
                     duration: seconds,
-                    date: new Date(),
+                    date: date || new Date(),
                     notes
                   }
                 ]
@@ -372,11 +396,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const activity = activities.find(a => a.id === activityId)
       if (!activity || !activity.sessions || !activity.sessions[sessionIndex]) {
-        return
+        return { success: false }
       }
       
       const sessionId = activity.sessions[sessionIndex].id
-      if (!sessionId) return
+      if (!sessionId) return { success: false }
       
       await deleteSessionAction(sessionId)
       
@@ -397,8 +421,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           return activity
         })
       )
+      return { success: true }
     } catch (error) {
       console.error('Error deleting session:', error)
+      return { success: false }
     }
   }
 

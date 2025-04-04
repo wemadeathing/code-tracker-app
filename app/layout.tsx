@@ -51,7 +51,10 @@ export default function RootLayout({
             as="image"
           />
         </head>
-        <body className={GeistSans.className}>
+        <body 
+          className={GeistSans.className}
+          style={{ overscrollBehaviorX: "auto" }}
+        >
           <Provider>
             <ThemeProvider
               attribute="class"

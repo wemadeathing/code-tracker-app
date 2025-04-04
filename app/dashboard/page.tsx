@@ -8,15 +8,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ActivityChart } from '@/components/ui/activity-chart'
 import { useAppContext } from '@/contexts/app-context'
 import { format, startOfDay, startOfWeek, startOfMonth, subDays, isWithinInterval, eachDayOfInterval } from 'date-fns'
+import { Calendar as CalendarIcon } from 'lucide-react'
+import { Calendar as CalendarComponent } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 
 export default function Dashboard() {
-  const { activities, formatTimeFromSeconds } = useAppContext()
-  const [isLogTimeOpen, setIsLogTimeOpen] = useState(false)
+  const { activities, formatTimeFromSeconds, addTimeToActivity } = useAppContext()
   const [selectedTab, setSelectedTab] = useState<"day" | "week" | "month">("day")
+  const [isLogTimeOpen, setIsLogTimeOpen] = useState(false)
+  const [selectedActivity, setSelectedActivity] = useState("")
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const datePickerRef = useRef<HTMLDivElement>(null)
+  const [hours, setHours] = useState('0')
+  const [minutes, setMinutes] = useState('0')
+  const [notes, setNotes] = useState('')
   const [stats, setStats] = useState({
     today: 0,
     week: 0,
@@ -24,89 +34,136 @@ export default function Dashboard() {
     streak: 0
   })
 
-  // Calculate dashboard stats based on activity sessions
   useEffect(() => {
-    const now = new Date()
-    const today = startOfDay(now)
-    const weekStart = startOfWeek(now)
-    const monthStart = startOfMonth(now)
+    const today = startOfDay(new Date())
+    const startOfCurrentWeek = startOfWeek(today)
+    const startOfCurrentMonth = startOfMonth(today)
     
-    // Extract all sessions from activities
-    const allSessions = activities.flatMap(activity => 
-      activity.sessions.map(session => ({
-        ...session,
-        activityId: activity.id,
-        activityTitle: activity.title
-      }))
-    )
+    let todaySeconds = 0
+    let weekSeconds = 0
+    let monthSeconds = 0
     
-    // Calculate time for today, this week, and this month
-    const todaySeconds = allSessions.reduce((total, session) => {
-      const sessionDate = new Date(session.date)
-      if (format(sessionDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) {
-        return total + session.duration
-      }
-      return total
-    }, 0)
+    // Calculate streak - active days in a row
+    const activeDatesSet = new Set()
+    const sortedDates: Date[] = []
     
-    const weekSeconds = allSessions.reduce((total, session) => {
-      const sessionDate = new Date(session.date)
-      if (isWithinInterval(sessionDate, { start: weekStart, end: now })) {
-        return total + session.duration
-      }
-      return total
-    }, 0)
-    
-    const monthSeconds = allSessions.reduce((total, session) => {
-      const sessionDate = new Date(session.date)
-      if (isWithinInterval(sessionDate, { start: monthStart, end: now })) {
-        return total + session.duration
-      }
-      return total
-    }, 0)
-    
-    // Calculate streak (consecutive days with activity)
-    let streak = 0
-    let currentDate = today
-    
-    while (true) {
-      // Check if there's any activity on this day
-      const hasActivity = allSessions.some(session => {
+    // Process all activities to get stats
+    activities.forEach(activity => {
+      if (!activity.sessions) return
+      
+      activity.sessions.forEach(session => {
         const sessionDate = new Date(session.date)
-        return format(sessionDate, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
+        const sessionDay = startOfDay(sessionDate)
+        
+        // Add to unique dates set for streak calculation
+        activeDatesSet.add(sessionDay.toISOString().split('T')[0])
+        sortedDates.push(sessionDay)
+        
+        if (isWithinInterval(sessionDay, { start: today, end: today })) {
+          todaySeconds += session.duration
+        }
+        
+        if (isWithinInterval(sessionDay, { start: startOfCurrentWeek, end: today })) {
+          weekSeconds += session.duration
+        }
+        
+        if (isWithinInterval(sessionDay, { start: startOfCurrentMonth, end: today })) {
+          monthSeconds += session.duration
+        }
       })
+    })
+    
+    // Calculate streaks
+    let currentStreak = 0
+    
+    // Only calculate streak if there are recorded sessions
+    if (sortedDates.length > 0) {
+      // Sort dates (newest first) and deduplicate them
+      const uniqueSortedDays = Array.from(activeDatesSet).sort().reverse()
       
-      if (!hasActivity) break
+      let currentDate = today
+      const todayString = currentDate.toISOString().split('T')[0]
       
-      streak++
-      currentDate = subDays(currentDate, 1)
+      // If today has activity, start counting streak from today
+      const startIndex = uniqueSortedDays[0] === todayString ? 0 : -1
+      
+      if (startIndex === 0) {
+        currentStreak = 1
+        let i = 1
+        let prevDay = today
+        
+        while (i < uniqueSortedDays.length) {
+          const yesterday = subDays(prevDay, 1)
+          const yesterdayString = yesterday.toISOString().split('T')[0]
+          
+          if (uniqueSortedDays[i] === yesterdayString) {
+            currentStreak++
+            prevDay = yesterday
+          } else {
+            break
+          }
+          i++
+        }
+      }
     }
     
     setStats({
       today: todaySeconds,
       week: weekSeconds,
       month: monthSeconds,
-      streak
+      streak: currentStreak
     })
   }, [activities])
-
+  
   // Get recent sessions for the Recent Sessions card
   const recentSessions = activities
-    .flatMap(activity => 
-      activity.sessions.map(session => ({
-        ...session,
+    .flatMap(activity => {
+      if (!activity.sessions) return []
+      
+      return activity.sessions.map(session => ({
         activityId: activity.id,
         activityTitle: activity.title,
-        activityColor: activity.parentColor
+        date: new Date(session.date),
+        duration: session.duration,
+        activityColor: activity.parentColor || "primary"
       }))
-    )
+    })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
 
   // Get top activities for the Activity Progress card
   const topActivities = [...activities]
-    .sort((a, b) => b.totalSeconds - a.totalSeconds)
+    .sort((a, b) => (b.totalSeconds || 0) - (a.totalSeconds || 0))
     .slice(0, 5)
+
+  // Prepare activities for ActivityChart by ensuring they have the right structure
+  const chartActivities = activities.map(activity => ({
+    id: activity.id,
+    title: activity.title,
+    parentColor: activity.parentColor || 'primary',
+    sessions: activity.sessions?.map(session => ({
+      duration: session.duration,
+      date: new Date(session.date),
+      notes: session.notes || ""
+    })) || []
+  }))
+
+  // Function to log past time with a specific date
+  const logPastTime = async (activityId: number, seconds: number, notes: string, date: Date) => {
+    try {
+      // Use the addTimeToActivity function from the context with the selected date
+      await addTimeToActivity(activityId, seconds, notes, date);
+    } catch (error) {
+      console.error('Error logging past time:', error);
+    }
+  };
+
+  // Handle date selection
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
 
   return (
     <div className='flex flex-col justify-center items-start flex-wrap px-4 pt-4 gap-4'>
@@ -115,7 +172,17 @@ export default function Dashboard() {
         
         {/* Log Past Time and Start Coding Buttons */}
         <div className="flex gap-2">
-          <Dialog open={isLogTimeOpen} onOpenChange={setIsLogTimeOpen}>
+          <Dialog open={isLogTimeOpen} onOpenChange={(open) => {
+            // If we're closing the dialog, reset the form
+            if (!open) {
+              setSelectedActivity("");
+              setSelectedDate(new Date());
+              setHours('0');
+              setMinutes('0');
+              setNotes('');
+            }
+            setIsLogTimeOpen(open);
+          }}>
             <DialogTrigger asChild>
               <Button variant="outline">Log Past Time</Button>
             </DialogTrigger>
@@ -126,7 +193,7 @@ export default function Dashboard() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="activity">Activity</Label>
-                  <Select>
+                  <Select value={selectedActivity} onValueChange={setSelectedActivity}>
                     <SelectTrigger id="activity">
                       <SelectValue placeholder="Select an activity" />
                     </SelectTrigger>
@@ -142,34 +209,101 @@ export default function Dashboard() {
 
                 <div className="grid gap-2">
                   <Label htmlFor="date">Date</Label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      id="date"
-                      placeholder={format(new Date(), 'MMMM do, yyyy')}
-                    />
-                    <Calendar className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <div className="grid grid-cols-1 gap-2">
+                    <div
+                      className={cn(
+                        "flex h-10 w-full items-center justify-start rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(selectedDate, "MMMM do, yyyy")}
+                    </div>
+                    <div className="p-3 border rounded-md">
+                      <CalendarComponent
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          if (date) setSelectedDate(date);
+                        }}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="hours">Hours</Label>
-                    <Input type="number" id="hours" placeholder="0" />
+                    <Input 
+                      type="number" 
+                      id="hours" 
+                      placeholder="0" 
+                      value={hours}
+                      onChange={(e) => setHours(e.target.value)}
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="minutes">Minutes</Label>
-                    <Input type="number" id="minutes" placeholder="0" />
+                    <Input 
+                      type="number" 
+                      id="minutes" 
+                      placeholder="0" 
+                      value={minutes}
+                      onChange={(e) => setMinutes(e.target.value)}
+                    />
                   </div>
                 </div>
 
                 <div className="grid gap-2">
                   <Label htmlFor="notes">Notes (Optional)</Label>
-                  <Input id="notes" placeholder="What did you work on?" />
+                  <Input 
+                    id="notes" 
+                    placeholder="What did you work on?" 
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button className="w-full">Log Time</Button>
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    // Validate inputs
+                    if (!selectedActivity) {
+                      // You could add proper validation feedback here
+                      return;
+                    }
+                    
+                    const hoursNum = parseInt(hours, 10) || 0;
+                    const minutesNum = parseInt(minutes, 10) || 0;
+                    
+                    if (hoursNum === 0 && minutesNum === 0) {
+                      // You could add validation feedback here
+                      return;
+                    }
+                    
+                    // Calculate total seconds
+                    const totalSeconds = (hoursNum * 60 * 60) + (minutesNum * 60);
+                    
+                    // Get the activity ID
+                    const activityId = parseInt(selectedActivity);
+                    
+                    // Log the time with the selected date
+                    if (selectedDate) {
+                      logPastTime(activityId, totalSeconds, notes, selectedDate);
+                    }
+                    
+                    // Close the dialog and reset form
+                    setIsLogTimeOpen(false);
+                    setSelectedActivity("");
+                    setSelectedDate(new Date());
+                    setHours('0');
+                    setMinutes('0');
+                    setNotes('');
+                  }}
+                >
+                  Log Time
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -247,7 +381,7 @@ export default function Dashboard() {
 
         {/* Coding Activity Chart */}
         <ActivityChart 
-          activities={activities} 
+          activities={chartActivities} 
           period={selectedTab} 
           onPeriodChange={setSelectedTab} 
           className="w-full mt-6"
@@ -268,7 +402,7 @@ export default function Dashboard() {
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(var(--${session.activityColor}))` }}></div>
                         <div>
                           <div className="font-medium">{session.activityTitle}</div>
-                          <div className="text-xs text-muted-foreground">{format(new Date(session.date), 'dd/MM/yyyy')}</div>
+                          <div className="text-xs text-muted-foreground">{format(session.date, 'dd/MM/yyyy')}</div>
                         </div>
                       </div>
                       <div className="text-sm">{formatTimeFromSeconds(session.duration)}</div>

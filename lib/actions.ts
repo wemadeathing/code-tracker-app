@@ -7,18 +7,8 @@ import { revalidatePath } from "next/cache"
 import { formatTimeFromSeconds } from "./utils"
 import { PrismaClient, Prisma } from "@prisma/client"
 
-// Type assertion for db to recognize all models
-type DbClient = {
-  user: any;
-  course: any;
-  project: any;
-  activity: any;
-  session: any;
-  streak: any;
-}
-
-// Use the db with type assertion
-const typedDb = db as unknown as DbClient;
+// Use the properly typed Prisma client
+const typedDb = db as PrismaClient
 
 // Helper function to get the user ID
 const getUserId = async () => {
@@ -66,6 +56,7 @@ export async function addCourse({ title, description, color = "blue" }: { title:
   })
   
   revalidatePath('/dashboard/courses')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return course
 }
 
@@ -85,6 +76,7 @@ export async function updateCourse(id: number, { title, description, color }: { 
   })
   
   revalidatePath('/dashboard/courses')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return course
 }
 
@@ -99,6 +91,7 @@ export async function deleteCourse(id: number) {
   })
   
   revalidatePath('/dashboard/courses')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return { success: true }
 }
 
@@ -148,6 +141,7 @@ export async function addProject({ title, description, color = "green" }: { titl
   })
   
   revalidatePath('/dashboard/projects')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return project
 }
 
@@ -167,6 +161,7 @@ export async function updateProject(id: number, { title, description, color }: {
   })
   
   revalidatePath('/dashboard/projects')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return project
 }
 
@@ -181,6 +176,7 @@ export async function deleteProject(id: number) {
   })
   
   revalidatePath('/dashboard/projects')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return { success: true }
 }
 
@@ -206,31 +202,31 @@ export async function getActivities() {
     }, 0)
     
     const parent = activity.course || activity.project
-    const parent_type = activity.course ? 'course' : 'project'
+    const parentType = activity.course ? 'course' : 'project'
     
     // Ensure we always have a color, even if parent is missing
-    let parent_color = "purple"; // Default color
+    let parentColor = "purple"; // Default color
     
     // For course parents
     if (activity.course && activity.course.color) {
-      parent_color = activity.course.color;
+      parentColor = activity.course.color;
     }
     // For project parents
     else if (activity.project && activity.project.color) {
-      parent_color = activity.project.color;
+      parentColor = activity.project.color;
     }
     
     return {
       id: activity.id,
       title: activity.title,
       description: activity.description || "",
-      parent_type,
-      parent_id: parent?.id || 0,
-      parent_title: parent?.title || "",
-      parent_color: parent_color,
-      color: activity.color || parent_color, // Use activity's own color if available, otherwise fallback to parent's color
-      total_time: formatTimeFromSeconds(total_seconds),
-      total_seconds,
+      parentType,
+      parentId: parent?.id || 0,
+      parentTitle: parent?.title || "",
+      parentColor,
+      color: activity.color || parentColor, // Use activity's own color if available, otherwise fallback to parent's color
+      totalTime: formatTimeFromSeconds(total_seconds),
+      totalSeconds: total_seconds,
       sessions: activity.sessions.map((session: any) => ({
         id: session.id,
         duration: session.duration,
@@ -244,70 +240,72 @@ export async function getActivities() {
 export async function addActivity({ 
   title, 
   description, 
-  parent_type, 
-  parent_id 
+  parentType, 
+  parentId,
+  color = "purple"
 }: { 
   title: string, 
   description?: string, 
-  parent_type: 'course' | 'project', 
-  parent_id: number 
+  parentType: 'course' | 'project', 
+  parentId: number,
+  color?: string 
 }) {
   const user_id = await getUserId()
   
-  // First, fetch the parent to get its color
-  let parentColor = "purple"; // Default color
-  
-  if (parent_type === 'course') {
-    const course = await typedDb.course.findUnique({
-      where: { id: parent_id }
-    });
-    if (course) {
-      parentColor = course.color;
-    }
-  } else {
-    const project = await typedDb.project.findUnique({
-      where: { id: parent_id }
-    });
-    if (project) {
-      parentColor = project.color;
-    }
-  }
-  
-  const data: {
-    title: string;
-    description?: string;
-    user_id: number;
-    course_id?: number;
-    project_id?: number;
-  } = {
+  // Create data object with common fields
+  const data: any = {
     title,
     description,
+    color,
     user_id
   }
   
-  if (parent_type === 'course') {
-    data.course_id = parent_id
+  // Add parent reference based on type
+  if (parentType === 'course') {
+    data.course_id = parentId
   } else {
-    data.project_id = parent_id
+    data.project_id = parentId
   }
   
-  // Create activity
-  const activity = await typedDb.activity.create({ data })
+  const activity = await typedDb.activity.create({
+    data
+  })
   
-  // Now update the activity color with a raw query since Prisma doesn't recognize the color field yet
-  await db.$executeRaw`UPDATE activity SET color = ${parentColor} WHERE id = ${activity.id}`;
-  
-  revalidatePath('/dashboard/courses')
-  revalidatePath('/dashboard/projects')
-  revalidatePath('/dashboard/timer')
+  revalidatePath('/dashboard/activities')
+  revalidatePath(`/dashboard/${parentType}s`)
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return activity
 }
 
 export async function updateActivity(
   id: number, 
-  { title, description }: { title?: string, description?: string }
+  { 
+    title, 
+    description, 
+    color 
+  }: { 
+    title?: string, 
+    description?: string, 
+    color?: string 
+  }
 ) {
   const user_id = await getUserId()
+  
+  // Get the activity to determine its parent type
+  const existingActivity = await typedDb.activity.findFirst({
+    where: {
+      id,
+      user_id
+    },
+    include: {
+      course: true,
+      project: true
+    }
+  })
+  
+  if (!existingActivity) {
+    throw new Error("Activity not found or does not belong to user")
+  }
   
   const activity = await typedDb.activity.update({
     where: { 
@@ -316,18 +314,36 @@ export async function updateActivity(
     },
     data: {
       title,
-      description
+      description,
+      color
+    },
+    include: {
+      course: true,
+      project: true
     }
   })
   
-  revalidatePath('/dashboard/courses')
-  revalidatePath('/dashboard/projects')
-  revalidatePath('/dashboard/timer')
+  const parentType = activity.course_id ? 'course' : 'project'
+  revalidatePath('/dashboard/activities')
+  revalidatePath(`/dashboard/${parentType}s`)
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return activity
 }
 
 export async function deleteActivity(id: number) {
   const user_id = await getUserId()
+  
+  // Get the activity to determine its parent type
+  const activity = await typedDb.activity.findFirst({
+    where: {
+      id,
+      user_id
+    }
+  })
+  
+  if (!activity) {
+    throw new Error("Activity not found or does not belong to user")
+  }
   
   await typedDb.activity.delete({
     where: { 
@@ -336,16 +352,17 @@ export async function deleteActivity(id: number) {
     }
   })
   
-  revalidatePath('/dashboard/courses')
-  revalidatePath('/dashboard/projects')
-  revalidatePath('/dashboard/timer')
+  const parentType = activity.course_id ? 'course' : 'project'
+  revalidatePath('/dashboard/activities')
+  revalidatePath(`/dashboard/${parentType}s`)
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return { success: true }
 }
 
 // Session operations
 export async function addSession(
   activity_id: number, 
-  { duration, notes }: { duration: number, notes?: string }
+  { duration, notes, date }: { duration: number, notes?: string, date?: Date }
 ) {
   const user_id = await getUserId()
   
@@ -363,7 +380,7 @@ export async function addSession(
   
   const session = await typedDb.session.create({
     data: {
-      start_time: new Date(),
+      start_time: date || new Date(),
       duration,
       notes,
       activity_id,
@@ -371,20 +388,21 @@ export async function addSession(
     }
   })
   
-  // Update streak data - create or update today's streak
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // Update streak data - create or update for the session date
+  const sessionDate = date || new Date()
+  const streakDate = new Date(sessionDate)
+  streakDate.setHours(0, 0, 0, 0)
   
   await typedDb.streak.upsert({
     where: {
       user_id_date: {
         user_id,
-        date: today
+        date: streakDate
       }
     },
     update: {},
     create: {
-      date: today,
+      date: streakDate,
       user_id
     }
   })
@@ -392,6 +410,7 @@ export async function addSession(
   revalidatePath('/dashboard/courses')
   revalidatePath('/dashboard/projects')
   revalidatePath('/dashboard/timer')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return session
 }
 
@@ -417,6 +436,7 @@ export async function deleteSession(id: number) {
   revalidatePath('/dashboard/courses')
   revalidatePath('/dashboard/projects')
   revalidatePath('/dashboard/timer')
+  revalidatePath('/dashboard') // Also revalidate main dashboard
   return { success: true }
 }
 
