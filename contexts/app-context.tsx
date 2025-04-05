@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import { 
   getCourses, 
   addCourse as addCourseAction, 
@@ -131,9 +132,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [activeActivityId, setActiveActivityId] = useState<number | null>(null)
   const [timerStart, setTimerStart] = useState<Date | null>(null)
 
-  // Load data from database on component mount
+  // Get auth state
+  const { isSignedIn, isLoaded } = useAuth()
+
+  // Load data from database on component mount and auth state change
   useEffect(() => {
     const fetchData = async () => {
+      // Only fetch data if user is signed in
+      if (!isLoaded || !isSignedIn) {
+        setIsLoading(false)
+        return
+      }
+
       try {
         setIsLoading(true)
         
@@ -162,7 +172,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
     
     fetchData()
-  }, [])
+  }, [isSignedIn, isLoaded])
 
   // Course CRUD operations
   const addCourse = async (course: Omit<CourseType, 'id'>) => {
