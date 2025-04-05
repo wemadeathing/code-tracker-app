@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "npx prisma generate && npm run build"
   publish = ".next"
 
 [[plugins]]
@@ -7,7 +7,7 @@
 
 [build.environment]
   NEXT_USE_NETLIFY_EDGE = "true"
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
 
 # Remove the incorrect redirect rule for Next.js
 # [[redirects]]
