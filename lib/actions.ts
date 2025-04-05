@@ -5,10 +5,7 @@ import { db } from "./db"
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { formatTimeFromSeconds } from "./utils"
-import { PrismaClient, Prisma } from "@prisma/client"
-
-// Use the properly typed Prisma client
-const typedDb = db as PrismaClient
+import { Prisma } from "@prisma/client"
 
 // Helper function to get the user ID
 const getUserId = async () => {
@@ -21,7 +18,7 @@ const getUserId = async () => {
     }
     
     // Get the database user ID from the Clerk user ID
-    const dbUser = await typedDb.user.findUnique({
+    const dbUser = await db.user.findUnique({
       where: { user_id: userId } // Prisma schema uses snake_case (user_id)
     })
     
@@ -32,7 +29,7 @@ const getUserId = async () => {
     return dbUser.id
   } catch (error) {
     console.error('Error in getUserId:', error)
-    throw error
+    throw new Error("Authentication failed")
   }
 }
 
@@ -41,7 +38,7 @@ export async function getCourses() {
   try {
     const user_id = await getUserId()
     
-    const courses = await typedDb.course.findMany({
+    const courses = await db.course.findMany({
       where: { user_id },
       orderBy: { created_time: 'desc' }
     })
@@ -49,14 +46,14 @@ export async function getCourses() {
     return courses
   } catch (error) {
     console.error('Error in getCourses:', error)
-    throw error
+    throw new Error("Failed to fetch courses")
   }
 }
 
 export async function addCourse({ title, description, color = "blue" }: { title: string, description?: string, color?: string }) {
   const user_id = await getUserId()
   
-  const course = await typedDb.course.create({
+  const course = await db.course.create({
     data: {
       title,
       description,
@@ -73,7 +70,7 @@ export async function addCourse({ title, description, color = "blue" }: { title:
 export async function updateCourse(id: number, { title, description, color }: { title?: string, description?: string, color?: string }) {
   const user_id = await getUserId()
   
-  const course = await typedDb.course.update({
+  const course = await db.course.update({
     where: { 
       id,
       user_id
@@ -93,7 +90,7 @@ export async function updateCourse(id: number, { title, description, color }: { 
 export async function deleteCourse(id: number) {
   const user_id = await getUserId()
   
-  await typedDb.course.delete({
+  await db.course.delete({
     where: { 
       id,
       user_id
@@ -109,7 +106,7 @@ export async function deleteCourse(id: number) {
 export async function getProjects() {
   const user_id = await getUserId()
   
-  const projects = await typedDb.project.findMany({
+  const projects = await db.project.findMany({
     where: { user_id },
     orderBy: { created_time: 'desc' },
     include: {
@@ -141,7 +138,7 @@ export async function getProjects() {
 export async function addProject({ title, description, color = "green" }: { title: string, description?: string, color?: string }) {
   const user_id = await getUserId()
   
-  const project = await typedDb.project.create({
+  const project = await db.project.create({
     data: {
       title,
       description,
@@ -158,7 +155,7 @@ export async function addProject({ title, description, color = "green" }: { titl
 export async function updateProject(id: number, { title, description, color }: { title?: string, description?: string, color?: string }) {
   const user_id = await getUserId()
   
-  const project = await typedDb.project.update({
+  const project = await db.project.update({
     where: { 
       id,
       user_id
@@ -178,7 +175,7 @@ export async function updateProject(id: number, { title, description, color }: {
 export async function deleteProject(id: number) {
   const user_id = await getUserId()
   
-  await typedDb.project.delete({
+  await db.project.delete({
     where: { 
       id,
       user_id
@@ -194,7 +191,7 @@ export async function deleteProject(id: number) {
 export async function getActivities() {
   const user_id = await getUserId()
   
-  const activities = await typedDb.activity.findMany({
+  const activities = await db.activity.findMany({
     where: { user_id },
     orderBy: { created_time: 'desc' },
     include: {
@@ -269,7 +266,7 @@ export async function addActivity({
     data.project_id = parentId
   }
   
-  const activity = await typedDb.activity.create({
+  const activity = await db.activity.create({
     data
   })
   
@@ -300,7 +297,7 @@ export async function updateActivity(
   const user_id = await getUserId()
   
   // Get the activity to determine its parent type
-  const existingActivity = await typedDb.activity.findFirst({
+  const existingActivity = await db.activity.findFirst({
     where: {
       id,
       user_id
@@ -315,7 +312,7 @@ export async function updateActivity(
     throw new Error("Activity not found or does not belong to user")
   }
   
-  const activity = await typedDb.activity.update({
+  const activity = await db.activity.update({
     where: { 
       id,
       user_id
@@ -342,7 +339,7 @@ export async function deleteActivity(id: number) {
   const user_id = await getUserId()
   
   // Get the activity to determine its parent type
-  const activity = await typedDb.activity.findFirst({
+  const activity = await db.activity.findFirst({
     where: {
       id,
       user_id
@@ -353,7 +350,7 @@ export async function deleteActivity(id: number) {
     throw new Error("Activity not found or does not belong to user")
   }
   
-  await typedDb.activity.delete({
+  await db.activity.delete({
     where: { 
       id,
       user_id
@@ -375,7 +372,7 @@ export async function addSession(
   const user_id = await getUserId()
   
   // Verify the activity belongs to the user
-  const activity = await typedDb.activity.findFirst({
+  const activity = await db.activity.findFirst({
     where: {
       id: activity_id,
       user_id
@@ -386,7 +383,7 @@ export async function addSession(
     throw new Error("Activity not found or does not belong to user")
   }
   
-  const session = await typedDb.session.create({
+  const session = await db.session.create({
     data: {
       start_time: date || new Date(),
       duration,
@@ -401,7 +398,7 @@ export async function addSession(
   const streakDate = new Date(sessionDate)
   streakDate.setHours(0, 0, 0, 0)
   
-  await typedDb.streak.upsert({
+  await db.streak.upsert({
     where: {
       user_id_date: {
         user_id,
@@ -426,7 +423,7 @@ export async function deleteSession(id: number) {
   const user_id = await getUserId()
   
   // Verify the session belongs to the user
-  const session = await typedDb.session.findFirst({
+  const session = await db.session.findFirst({
     where: {
       id,
       user_id
@@ -437,7 +434,7 @@ export async function deleteSession(id: number) {
     throw new Error("Session not found or does not belong to user")
   }
   
-  await typedDb.session.delete({
+  await db.session.delete({
     where: { id }
   })
   
@@ -452,7 +449,7 @@ export async function deleteSession(id: number) {
 export async function getStreaks() {
   const user_id = await getUserId()
   
-  const streaks = await typedDb.streak.findMany({
+  const streaks = await db.streak.findMany({
     where: { user_id },
     orderBy: { date: 'desc' }
   })
