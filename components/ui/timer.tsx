@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Play, Pause, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,7 @@ interface TimerProps {
   initialSeconds?: number
   onUpdate?: (seconds: number) => void
   className?: string
+  activityId?: number
 }
 
 const formatTime = (seconds: number): string => {
@@ -26,9 +27,16 @@ const formatTime = (seconds: number): string => {
     .join(':')
 }
 
-export function Timer({ initialSeconds = 0, onUpdate, className }: TimerProps) {
-  // Use the global timer context instead of local state
-  const { seconds, setSeconds, isRunning, setIsRunning } = useTimer()
+export function Timer({ initialSeconds = 0, onUpdate, className, activityId }: TimerProps) {
+  const { 
+    seconds, 
+    setSeconds, 
+    isRunning, 
+    activeActivityId,
+    startTimer,
+    stopTimer,
+    resetTimer 
+  } = useTimer()
   
   // Initialize seconds from props only on first render
   useEffect(() => {
@@ -53,19 +61,31 @@ export function Timer({ initialSeconds = 0, onUpdate, className }: TimerProps) {
   }, [seconds]);
 
   const toggleTimer = () => {
-    setIsRunning(!isRunning)
+    if (!activityId) return
+    
+    if (!isRunning || (isRunning && activeActivityId === activityId)) {
+      if (isRunning) {
+        stopTimer()
+      } else {
+        startTimer(activityId)
+      }
+    }
   }
 
-  const resetTimer = () => {
-    setIsRunning(false)
-    setSeconds(0)
-    if (onUpdateRef.current) onUpdateRef.current(0)
+  const handleReset = () => {
+    if (activeActivityId === activityId || !activeActivityId) {
+      resetTimer()
+      if (onUpdateRef.current) onUpdateRef.current(0)
+    }
   }
+
+  // Determine if this timer instance can be controlled
+  const canControl = !isRunning || (isRunning && activeActivityId === activityId)
 
   return (
     <div className={cn(
       "flex items-center space-x-2 p-2 rounded-md transition-all", 
-      isRunning 
+      isRunning && activeActivityId === activityId
         ? "bg-primary/5 border border-primary animate-pulse-subtle" 
         : "border border-transparent",
       className
@@ -75,18 +95,20 @@ export function Timer({ initialSeconds = 0, onUpdate, className }: TimerProps) {
       </div>
       <div className="flex space-x-1">
         <Button 
-          variant={isRunning ? "secondary" : "outline"}
+          variant={isRunning && activeActivityId === activityId ? "secondary" : "outline"}
           size="icon" 
           onClick={toggleTimer}
+          disabled={!canControl || !activityId}
           aria-label={isRunning ? "Pause timer" : "Start timer"}
-          className={isRunning ? "text-primary" : ""}
+          className={isRunning && activeActivityId === activityId ? "text-primary" : ""}
         >
-          {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          {isRunning && activeActivityId === activityId ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>
         <Button 
           variant="outline" 
           size="icon" 
-          onClick={resetTimer}
+          onClick={handleReset}
+          disabled={!canControl}
           aria-label="Reset timer"
         >
           <RefreshCw className="h-4 w-4" />

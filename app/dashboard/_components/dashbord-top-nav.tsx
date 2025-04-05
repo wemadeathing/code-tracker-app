@@ -19,8 +19,32 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { ReactNode } from 'react'
+import { useTimer } from '@/contexts/timer-context'
+import { useAppContext } from '@/contexts/app-context'
+import { Badge } from '@/components/ui/badge'
+
+// Helper function to format seconds to HH:MM:SS or MM:SS
+const formatTime = (seconds: number): string => {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  
+  return [
+    hours > 0 ? String(hours).padStart(2, '0') : null,
+    String(minutes).padStart(2, '0'),
+    String(secs).padStart(2, '0')
+  ]
+    .filter(Boolean)
+    .join(':')
+}
 
 export default function DashboardTopNav({ children }: { children: ReactNode }) {
+  const { isRunning, seconds, activeActivityId } = useTimer()
+  const { activities } = useAppContext()
+
+  // Get the current activity name if timer is running
+  const currentActivity = activities.find(a => a.id === activeActivityId)
+
   return (
     <div className="flex flex-col">
       <header className="flex h-14 lg:h-[55px] items-center gap-4 border-b px-3">

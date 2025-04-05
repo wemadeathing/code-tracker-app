@@ -7,13 +7,59 @@ interface TimerContextType {
   setIsRunning: (isRunning: boolean) => void
   seconds: number
   setSeconds: (seconds: number) => void
+  activeActivityId: number | null
+  setActiveActivityId: (id: number | null) => void
+  startTimer: (activityId: number) => void
+  stopTimer: () => void
+  resetTimer: () => void
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined)
 
+// Load timer state from localStorage
+const loadTimerState = () => {
+  if (typeof window === 'undefined') return null
+  
+  const savedState = localStorage.getItem('timerState')
+  if (!savedState) return null
+  
+  try {
+    const state = JSON.parse(savedState)
+    // Calculate elapsed time since last save
+    if (state.isRunning && state.lastSaved) {
+      const elapsedSeconds = Math.floor((Date.now() - state.lastSaved) / 1000)
+      state.seconds += elapsedSeconds
+    }
+    return state
+  } catch (error) {
+    console.error('Error loading timer state:', error)
+    return null
+  }
+}
+
 export function TimerProvider({ children }: { children: ReactNode }) {
-  const [isRunning, setIsRunning] = useState(false)
-  const [seconds, setSeconds] = useState(0)
+  // Initialize state from localStorage or defaults
+  const initialState = loadTimerState() || {
+    isRunning: false,
+    seconds: 0,
+    activeActivityId: null
+  }
+  
+  const [isRunning, setIsRunning] = useState(initialState.isRunning)
+  const [seconds, setSeconds] = useState(initialState.seconds)
+  const [activeActivityId, setActiveActivityId] = useState<number | null>(initialState.activeActivityId)
+
+  // Save timer state to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('timerState', JSON.stringify({
+        isRunning,
+        seconds,
+        activeActivityId,
+        lastSaved: Date.now()
+      }))
+    }
+  }, [isRunning, seconds, activeActivityId])
   
   // Set up interval for continuous counting if the timer is running
   useEffect(() => {
@@ -21,7 +67,10 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     
     if (isRunning) {
       interval = setInterval(() => {
-        setSeconds(prevSeconds => prevSeconds + 1)
+        setSeconds((prevSeconds: number) => {
+          const newSeconds = prevSeconds + 1
+          return newSeconds
+        })
       }, 1000)
     }
     
@@ -30,8 +79,35 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     }
   }, [isRunning])
 
+  // Helper functions for timer control
+  const startTimer = (activityId: number) => {
+    setActiveActivityId(activityId)
+    setIsRunning(true)
+  }
+
+  const stopTimer = () => {
+    setIsRunning(false)
+  }
+
+  const resetTimer = () => {
+    setIsRunning(false)
+    setSeconds(0)
+    setActiveActivityId(null)
+    localStorage.removeItem('timerState')
+  }
+
   return (
-    <TimerContext.Provider value={{ isRunning, setIsRunning, seconds, setSeconds }}>
+    <TimerContext.Provider value={{ 
+      isRunning, 
+      setIsRunning, 
+      seconds, 
+      setSeconds,
+      activeActivityId,
+      setActiveActivityId,
+      startTimer,
+      stopTimer,
+      resetTimer
+    }}>
       {children}
     </TimerContext.Provider>
   )

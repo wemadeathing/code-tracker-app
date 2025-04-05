@@ -1,36 +1,42 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Play, Pause, StopCircle, Plus } from 'lucide-react'
-import { useAppContext, ActivityType } from '@/contexts/app-context'
+import { useAppContext } from '@/contexts/app-context'
 import { Textarea } from '@/components/ui/textarea'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { useTimer } from '@/contexts/timer-context'
+import { Timer as TimerComponent } from '@/components/ui/timer'
 
-export default function Timer() {
+export default function TimerPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { 
     courses, 
     projects, 
     activities, 
-    addActivity, 
     addTimeToActivity 
   } = useAppContext()
   
-  const [time, setTime] = useState({ hours: 0, minutes: 0, seconds: 0 })
-  const [totalSeconds, setTotalSeconds] = useState<number>(0)
-  const [timerStatus, setTimerStatus] = useState<'ready' | 'running' | 'paused'>('ready')
+  const { 
+    isRunning,
+    seconds,
+    activeActivityId,
+    startTimer,
+    stopTimer,
+    resetTimer
+  } = useTimer()
+  
   const [selectedActivity, setSelectedActivity] = useState<string>('')
   const [activityType, setActivityType] = useState<'courses' | 'projects'>('courses')
   const [sessionNotes, setSessionNotes] = useState<string>('')
   const [showCompletionDialog, setShowCompletionDialog] = useState<boolean>(false)
-  
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get activities for the selected type
   const filteredActivities = activities.filter(activity => {
@@ -41,59 +47,32 @@ export default function Timer() {
     }
   })
 
-  // Timer logic
+  // Check for activity ID in URL params
   useEffect(() => {
-    if (timerStatus === 'running') {
-      timerRef.current = setInterval(() => {
-        setTotalSeconds(prevSeconds => {
-          const newSeconds = prevSeconds + 1
-          
-          // Update the displayed time
-          setTime({
-            hours: Math.floor(newSeconds / 3600),
-            minutes: Math.floor((newSeconds % 3600) / 60),
-            seconds: newSeconds % 60
-          })
-          
-          return newSeconds
-        })
-      }, 1000)
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
-    
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
+    const activityId = searchParams.get('activity')
+    if (activityId) {
+      setSelectedActivity(activityId)
+      const activity = activities.find(a => a.id === parseInt(activityId))
+      if (activity) {
+        setActivityType(activity.parentType === 'course' ? 'courses' : 'projects')
       }
     }
-  }, [timerStatus])
-
-  // Start/pause timer
-  const toggleTimer = () => {
-    if (timerStatus === 'ready' || timerStatus === 'paused') {
-      setTimerStatus('running')
-    } else {
-      setTimerStatus('paused')
-    }
-  }
+  }, [searchParams, activities])
 
   // Complete timer session
   const completeSession = () => {
-    setTimerStatus('paused')
+    stopTimer()
     setShowCompletionDialog(true)
   }
 
   // Save completed session
   const saveSession = () => {
-    if (selectedActivity && totalSeconds > 0) {
+    if (selectedActivity && seconds > 0) {
       const activityId = parseInt(selectedActivity)
-      addTimeToActivity(activityId, totalSeconds, sessionNotes)
+      addTimeToActivity(activityId, seconds, sessionNotes)
       
-      // Reset timer
-      setTime({ hours: 0, minutes: 0, seconds: 0 })
-      setTotalSeconds(0)
-      setTimerStatus('ready')
+      // Reset everything
+      resetTimer()
       setSessionNotes('')
       setShowCompletionDialog(false)
     }
@@ -110,6 +89,18 @@ export default function Timer() {
       router.push('/dashboard/courses')
     } else {
       router.push('/dashboard/projects')
+    }
+  }
+
+  // Handle timer controls
+  const handleTimerAction = () => {
+    if (!selectedActivity) return
+
+    const activityId = parseInt(selectedActivity)
+    if (!isRunning) {
+      startTimer(activityId)
+    } else if (activeActivityId === activityId) {
+      stopTimer()
     }
   }
 
@@ -135,7 +126,7 @@ export default function Timer() {
               <Select 
                 value={selectedActivity} 
                 onValueChange={setSelectedActivity}
-                disabled={timerStatus !== 'ready' || filteredActivities.length === 0}
+                disabled={isRunning && activeActivityId !== parseInt(selectedActivity)}
               >
                 <SelectTrigger className="w-[300px]">
                   <SelectValue placeholder="Select an activity" />
@@ -179,17 +170,15 @@ export default function Timer() {
           <CardContent className="py-10 flex justify-center items-center flex-col">
             <h2 className="text-lg font-medium mb-4">Elapsed Time</h2>
             
-            <div className="font-mono text-6xl flex items-center justify-center mb-2">
-              <span className="tabular-nums">{formatTime(time.hours)}</span>
-              <span className="mx-1">:</span>
-              <span className="tabular-nums">{formatTime(time.minutes)}</span>
-              <span className="mx-1">:</span>
-              <span className="tabular-nums">{formatTime(time.seconds)}</span>
-            </div>
+            <TimerComponent 
+              activityId={selectedActivity ? parseInt(selectedActivity) : undefined}
+              className="text-6xl font-mono"
+            />
             
             <div className="text-sm text-muted-foreground mt-2">
-              {timerStatus === 'ready' ? 'Ready to start' : 
-               timerStatus === 'running' ? 'Timer running' : 'Timer paused'}
+              {!selectedActivity ? 'Select an activity to start' :
+               isRunning && activeActivityId === parseInt(selectedActivity) ? 'Timer running' :
+               isRunning ? 'Another timer is running' : 'Ready to start'}
             </div>
           </CardContent>
         </Card>
@@ -202,10 +191,10 @@ export default function Timer() {
               <Button 
                 className="w-full" 
                 size="lg" 
-                onClick={toggleTimer}
-                disabled={!selectedActivity}
+                onClick={handleTimerAction}
+                disabled={!selectedActivity || (isRunning && activeActivityId !== parseInt(selectedActivity))}
               >
-                {timerStatus === 'running' ? 
+                {isRunning && activeActivityId === parseInt(selectedActivity) ? 
                   <><Pause className="mr-2 h-4 w-4" />Pause Session</> : 
                   <><Play className="mr-2 h-4 w-4" />Start Session</>
                 }
@@ -216,7 +205,7 @@ export default function Timer() {
                 size="lg" 
                 variant="secondary"
                 onClick={completeSession}
-                disabled={timerStatus === 'ready' || !selectedActivity || totalSeconds === 0}
+                disabled={!selectedActivity || !isRunning || activeActivityId !== parseInt(selectedActivity) || seconds === 0}
               >
                 <StopCircle className="mr-2 h-4 w-4" />
                 Complete Session

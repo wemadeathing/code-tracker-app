@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import { ResponsiveContainer } from "recharts"
 
 import {
   Card,
@@ -12,9 +13,8 @@ import {
 } from "@/components/ui/card"
 import {
   ChartConfig,
-  ChartContainer,
+  Chart,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart"
 const chartData = [
   { date: "2024-04-01", desktop: 222, mobile: 150 },
@@ -167,7 +167,7 @@ export function BarChartBetter() {
         </div>
       </CardHeader>
       <CardContent className="px-2 sm:p-6">
-        <ChartContainer
+        <Chart
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
@@ -195,23 +195,17 @@ export function BarChartBetter() {
               }}
             />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  className="w-[150px]"
-                  nameKey="views"
-                  labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  }}
-                />
-              }
+              labelFormatter={(value) => {
+                return new Date(value).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              }}
             />
             <Bar dataKey={activeChart} fill={`var(--color-${activeChart})`} />
           </BarChart>
-        </ChartContainer>
+        </Chart>
       </CardContent>
     </Card>
   )

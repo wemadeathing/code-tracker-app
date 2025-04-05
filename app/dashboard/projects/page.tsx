@@ -40,7 +40,7 @@ export default function ProjectsPage() {
 
   const filteredProjects = projects.filter(project =>
     project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (project.description || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleAddProject = () => {
@@ -71,7 +71,7 @@ export default function ProjectsPage() {
     )
     
     const totalTimeSeconds = projectActivities.reduce(
-      (total, activity) => total + activity.totalSeconds, 0
+      (total, activity) => total + (activity.totalSeconds || 0), 0
     )
     
     return {

@@ -218,7 +218,7 @@ export default function ActivitiesPage() {
       // Text search filter
       const matchesSearch = 
         activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        activity.description.toLowerCase().includes(searchQuery.toLowerCase())
+        (activity.description || "").toLowerCase().includes(searchQuery.toLowerCase())
       
       // Tab filter
       let matchesTab = activeTab === 'all'
@@ -267,26 +267,34 @@ export default function ActivitiesPage() {
     
     addActivity({
       title: newActivityTitle,
-      description: newActivityDescription,
+      description: newActivityDescription || "",
       parentType: parentType as 'course' | 'project',
       parentId,
       parentTitle,
       parentColor,
-      color: parentColor, // Add this line to ensure color is saved to the database
+      color: parentColor, // Ensure color is passed to use parent's color
       totalTime: '0h 0m',
       totalSeconds: 0,
       sessions: []
+    }).then((result) => {
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Activity created successfully.",
+        });
+        
+        setNewActivityTitle('');
+        setNewActivityDescription('');
+        setNewActivityParent('');
+        setIsAddActivityOpen(false);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create activity.",
+          variant: "destructive"
+        });
+      }
     });
-    
-    toast({
-      title: "Success",
-      description: "Activity created successfully.",
-    });
-    
-    setNewActivityTitle('');
-    setNewActivityDescription('');
-    setNewActivityParent('');
-    setIsAddActivityOpen(false);
   };
 
   // Handler for deleting an activity

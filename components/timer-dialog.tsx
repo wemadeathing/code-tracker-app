@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Timer } from '@/components/ui/timer'
 import { CheckCircle } from 'lucide-react'
 import { ActivityType } from '@/contexts/app-context'
+import { useTimer } from '@/contexts/timer-context'
 
 interface TimerDialogProps {
   isOpen: boolean
@@ -16,7 +17,7 @@ interface TimerDialogProps {
 }
 
 export function TimerDialog({ isOpen, onClose, activity, onSaveTime }: TimerDialogProps) {
-  const [seconds, setSeconds] = useState(0)
+  const { seconds, resetTimer } = useTimer()
   const [notes, setNotes] = useState('')
   const [isCompleted, setIsCompleted] = useState(false)
 
@@ -40,7 +41,6 @@ export function TimerDialog({ isOpen, onClose, activity, onSaveTime }: TimerDial
   }
 
   const resetDialog = () => {
-    setSeconds(0)
     setNotes('')
     setIsCompleted(false)
   }
@@ -49,6 +49,7 @@ export function TimerDialog({ isOpen, onClose, activity, onSaveTime }: TimerDial
     // Show confirmation if timer is running and has time
     if (!isCompleted && seconds > 0) {
       if (window.confirm('You have unsaved time. Are you sure you want to close?')) {
+        resetTimer()
         resetDialog()
         onClose()
       }
@@ -81,8 +82,7 @@ export function TimerDialog({ isOpen, onClose, activity, onSaveTime }: TimerDial
           ) : (
             <div className="flex items-center justify-center">
               <Timer 
-                initialSeconds={0} 
-                onUpdate={setSeconds}
+                activityId={activity.id}
                 className="text-4xl font-mono"
               />
             </div>

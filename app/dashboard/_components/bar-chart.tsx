@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { TrendingUp } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "recharts"
 
@@ -11,12 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
+import { Chart, ChartConfig, ChartTooltip } from "@/components/ui/chart"
+
 const chartData = [
   { browser: "chrome", visitors: 187, fill: "var(--color-chrome)" },
   { browser: "safari", visitors: 200, fill: "var(--color-safari)" },
@@ -59,7 +56,7 @@ export function BarChartComponent() {
         <CardDescription>January - June 2024</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
+        <Chart config={chartConfig}>
           <BarChart accessibilityLayer data={chartData}>
             <CartesianGrid vertical={false} />
             <XAxis
@@ -71,10 +68,7 @@ export function BarChartComponent() {
                 chartConfig[value as keyof typeof chartConfig]?.label
               }
             />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
+            <ChartTooltip />
             <Bar
               dataKey="visitors"
               strokeWidth={2}
@@ -93,7 +87,7 @@ export function BarChartComponent() {
               }}
             />
           </BarChart>
-        </ChartContainer>
+        </Chart>
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 font-medium leading-none">

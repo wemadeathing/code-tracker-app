@@ -40,7 +40,7 @@ export default function CoursesPage() {
 
   const filteredCourses = courses.filter(course =>
     course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (course.description || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleAddCourse = () => {
@@ -69,7 +69,7 @@ export default function CoursesPage() {
     )
     
     const totalTimeSeconds = courseActivities.reduce(
-      (total, activity) => total + activity.totalSeconds, 0
+      (total, activity) => total + (activity.totalSeconds || 0), 0
     )
     
     return {

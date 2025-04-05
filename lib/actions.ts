@@ -202,7 +202,8 @@ export async function getActivities() {
     }, 0)
     
     const parent = activity.course || activity.project
-    const parentType = activity.course ? 'course' : 'project'
+    // Ensure the parentType is correctly typed as 'course' | 'project'
+    const parentType = activity.course ? 'course' as const : 'project' as const
     
     // Get the parent's color directly from the parent object
     const parentColor = parent?.color || "purple" // Only use purple as fallback if no parent color exists
@@ -246,7 +247,7 @@ export async function addActivity({
   // Create data object with common fields
   const data: any = {
     title,
-    description,
+    description: description || null, // Ensure null is used for empty descriptions
     color,
     user_id
   }
@@ -254,7 +255,7 @@ export async function addActivity({
   // Add parent reference based on type
   if (parentType === 'course') {
     data.course_id = parentId
-  } else {
+  } else if (parentType === 'project') {
     data.project_id = parentId
   }
   
@@ -265,7 +266,13 @@ export async function addActivity({
   revalidatePath('/dashboard/activities')
   revalidatePath(`/dashboard/${parentType}s`)
   revalidatePath('/dashboard') // Also revalidate main dashboard
-  return activity
+  
+  // Convert to camelCase fields for frontend
+  return {
+    ...activity,
+    parentType,
+    parentId
+  }
 }
 
 export async function updateActivity(

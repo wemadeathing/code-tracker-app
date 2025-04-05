@@ -19,6 +19,7 @@ import { usePathname } from 'next/navigation'
 import { FaTasks } from 'react-icons/fa'
 import { useTimer } from '@/contexts/timer-context'
 import { Badge } from '@/components/ui/badge'
+import { useAppContext } from '@/contexts/app-context'
 
 // Helper function to format seconds to HH:MM:SS or MM:SS
 const formatTime = (seconds: number): string => {
@@ -37,20 +38,27 @@ const formatTime = (seconds: number): string => {
 
 export default function DashboardSideBar() {
   const pathname = usePathname();
-  const { isRunning, seconds } = useTimer();
+  const { isRunning, seconds, activeActivityId } = useTimer();
+  const { activities } = useAppContext();
+
+  // Get the current activity name if timer is running
+  const currentActivity = activities.find(a => a.id === activeActivityId);
 
   return (
     <div className="lg:block hidden border-r h-full">
-      <div className="flex h-full max-h-screen flex-col gap-2 ">
+      <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-[55px] items-center justify-between border-b px-3 w-full">
           <Link className="flex items-center gap-2 font-semibold ml-1" href="/">
             <span className="">CodeTracker</span>
           </Link>
-          {isRunning && (
-            <div className="flex items-center">
-              <div className="animate-pulse-subtle bg-primary/20 border border-primary rounded-full w-3 h-3 mr-2">
+          {isRunning && currentActivity && (
+            <div className="flex items-center gap-2">
+              <div className="animate-pulse-subtle bg-primary/20 border border-primary rounded-full w-3 h-3">
                 <span className="sr-only">Timer is running</span>
               </div>
+              <Badge variant="outline" className="bg-primary/5 text-primary border-primary">
+                {currentActivity.title}
+              </Badge>
             </div>
           )}
         </div>
@@ -63,9 +71,9 @@ export default function DashboardSideBar() {
               href="/dashboard"
             >
               <div className="border rounded-lg dark:bg-black dark:border-gray-800 border-gray-400 p-1 bg-white">
-                <HomeIcon className="h-3 w-3" />
+                <HomeIcon className="h-4 w-4" />
               </div>
-              Dashboard
+              <span>Home</span>
             </Link>
             
             {/* Timer Link - Most important for time tracking */}

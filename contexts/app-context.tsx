@@ -169,7 +169,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const newCourse = await addCourseAction({
         title: course.title, 
-        description: course.description, 
+        description: course.description || "", 
         color: course.color
       })
       if (newCourse) {
@@ -191,7 +191,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const updatedCourse = await updateCourseAction(id, {
         title: course.title,
-        description: course.description,
+        description: course.description === null ? "" : course.description,
         color: course.color
       })
       if (updatedCourse) {
@@ -230,57 +230,74 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }
 
   // Project CRUD operations
-  const addProject = async (project: Omit<ProjectType, 'id'>) => {
+  const addProject = async (project: Omit<ProjectType, 'id'>): Promise<{ success: boolean, error?: string }> => {
     try {
       const newProject = await addProjectAction({
         title: project.title, 
-        description: project.description, 
+        description: project.description || "", 
         color: project.color
       })
       if (newProject) {
         setProjects(prevProjects => [...prevProjects, newProject as ProjectType])
+        return { success: true }
       }
+      return { success: false, error: 'Failed to add project' }
     } catch (error) {
       console.error('Error adding project:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
-  const updateProject = async (id: number, project: Partial<ProjectType>) => {
+  const updateProject = async (id: number, project: Partial<ProjectType>): Promise<{ success: boolean, error?: string }> => {
     try {
       const updatedProject = await updateProjectAction(id, {
         title: project.title,
-        description: project.description,
+        description: project.description || "",
         color: project.color
       })
       if (updatedProject) {
         setProjects(prevProjects => 
           prevProjects.map(p => p.id === id ? { ...p, ...project } : p)
         )
+        return { success: true }
       }
+      return { success: false, error: 'Failed to update project' }
     } catch (error) {
       console.error('Error updating project:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
-  const deleteProject = async (id: number) => {
+  const deleteProject = async (id: number): Promise<{ success: boolean, error?: string }> => {
     try {
       await deleteProjectAction(id)
       setProjects(prevProjects => prevProjects.filter(p => p.id !== id))
+      return { success: true }
     } catch (error) {
       console.error('Error deleting project:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
   // Activity CRUD operations
-  const addActivity = async (activity: Omit<ActivityType, 'id'>) => {
+  const addActivity = async (activity: Omit<ActivityType, 'id'>): Promise<{ success: boolean, error?: string }> => {
     try {
-      // Convert from camelCase to snake_case for the API
+      // Call the server action with properly named parameters
       const newActivity = await addActivityAction({ 
         title: activity.title, 
-        description: activity.description,
-        // Convert camelCase to snake_case for the backend
-        parent_type: activity.parentType === 'course' ? 'course' : 'project',
-        parent_id: activity.parentId
+        description: activity.description || "",
+        parentType: activity.parentType,
+        parentId: activity.parentId,
+        color: activity.color || activity.parentColor
       })
       
       if (newActivity) {
@@ -295,27 +312,35 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           parentType: activity.parentType,
           parentId: activity.parentId,
           parentTitle: parent?.title || '',
-          parentColor: parent?.color || 'blue',
+          parentColor: parent?.color || 'purple',
+          color: newActivity.color || parent?.color || 'purple',
           totalSeconds: 0,
           totalTime: '0h 0m',
           sessions: []
-        }
+        } as ActivityType
         
-        setActivities(prevActivities => [...prevActivities, activityWithParent as ActivityType])
+        setActivities(prevActivities => [...prevActivities, activityWithParent])
+        return { success: true }
       }
+      return { success: false, error: 'Failed to add activity' }
     } catch (error) {
       console.error('Error adding activity:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
-  const updateActivity = async (id: number, activity: Partial<ActivityType>) => {
+  const updateActivity = async (id: number, activity: Partial<ActivityType>): Promise<{ success: boolean, error?: string }> => {
     try {
       const { parentTitle, parentColor, totalTime, totalSeconds, sessions, ...rest } = activity
       
       // Convert from camelCase to snake_case for the API
       const dbActivity = {
         title: rest.title,
-        description: rest.description
+        description: rest.description || "",
+        color: rest.color
       }
       
       const updatedActivity = await updateActivityAction(id, dbActivity)
@@ -324,18 +349,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setActivities(prevActivities => 
           prevActivities.map(a => a.id === id ? { ...a, ...activity } : a)
         )
+        return { success: true }
       }
+      return { success: false, error: 'Failed to update activity' }
     } catch (error) {
       console.error('Error updating activity:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 
-  const deleteActivity = async (id: number) => {
+  const deleteActivity = async (id: number): Promise<{ success: boolean, error?: string }> => {
     try {
       await deleteActivityAction(id)
       setActivities(prevActivities => prevActivities.filter(a => a.id !== id))
+      return { success: true }
     } catch (error) {
       console.error('Error deleting activity:', error)
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }
     }
   }
 

@@ -54,20 +54,22 @@ export default function Sessions() {
     const sessions: SessionWithDetails[] = []
     
     activities.forEach(activity => {
-      activity.sessions.forEach((session, index) => {
-        sessions.push({
-          id: `${activity.id}-${index}`,
-          activityId: activity.id,
-          activityTitle: activity.title,
-          parentTitle: activity.parentTitle,
-          parentColor: activity.parentColor,
-          parentType: activity.parentType,
-          date: new Date(session.date),
-          duration: session.duration,
-          formattedDuration: formatTimeFromSeconds(session.duration),
-          notes: session.notes || "No notes"
+      if (activity.sessions && activity.sessions.length > 0) {
+        activity.sessions.forEach((session, index) => {
+          sessions.push({
+            id: `${activity.id}-${index}`,
+            activityId: activity.id,
+            activityTitle: activity.title,
+            parentTitle: activity.parentTitle,
+            parentColor: activity.parentColor,
+            parentType: activity.parentType,
+            date: new Date(session.date),
+            duration: session.duration,
+            formattedDuration: formatTimeFromSeconds(session.duration),
+            notes: session.notes || "No notes"
+          })
         })
-      })
+      }
     })
     
     // Sort by date (newest first)
