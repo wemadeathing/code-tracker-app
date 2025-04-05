@@ -15,13 +15,15 @@ import {
   Clock, 
   Timer, 
   GraduationCap, 
-  LayoutList 
+  LayoutList,
+  StopCircle 
 } from 'lucide-react'
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import { useTimer } from '@/contexts/timer-context'
 import { useAppContext } from '@/contexts/app-context'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 // Helper function to format seconds to HH:MM:SS or MM:SS
 const formatTime = (seconds: number): string => {
@@ -39,11 +41,16 @@ const formatTime = (seconds: number): string => {
 }
 
 export default function DashboardTopNav({ children }: { children: ReactNode }) {
-  const { isRunning, seconds, activeActivityId } = useTimer()
+  const { isRunning, seconds, activeActivityId, stopTimer } = useTimer()
   const { activities } = useAppContext()
 
   // Get the current activity name if timer is running
   const currentActivity = activities.find(a => a.id === activeActivityId)
+
+  // Handle stopping the timer
+  const handleStopTimer = () => {
+    stopTimer();
+  };
 
   return (
     <div className="flex flex-col">
@@ -134,6 +141,37 @@ export default function DashboardTopNav({ children }: { children: ReactNode }) {
             </div>
           </SheetContent>
         </Dialog>
+        
+        {/* Active Timer Display for Mobile */}
+        {isRunning && currentActivity && (
+          <div className="flex items-center gap-2 mr-auto">
+            <div className="animate-pulse-subtle bg-primary/20 border border-primary rounded-full w-3 h-3">
+              <span className="sr-only">Timer is running</span>
+            </div>
+            <Badge variant="outline" className="bg-primary/5 text-primary border-primary">
+              {currentActivity.title}: {formatTime(seconds)}
+            </Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 p-0 text-primary hover:text-primary/80 hover:bg-primary/10"
+                    onClick={handleStopTimer}
+                  >
+                    <StopCircle className="h-4 w-4" />
+                    <span className="sr-only">Stop Timer</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Stop Timer</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
+        
         <div className="flex justify-center items-center gap-2 ml-auto">
           {config?.auth?.enabled && <UserProfile />}
           <ModeToggle />

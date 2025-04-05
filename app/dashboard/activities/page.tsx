@@ -46,18 +46,19 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   const cardColor = activity.parentColor || activity.color;
 
   return (
-    <Card className="overflow-hidden flex flex-col h-[320px]">
+    <Card className="overflow-hidden flex flex-col h-[250px] rounded-xl shadow-md transition-all hover:shadow-lg relative">
+      {/* Color indicator (left side vertical bar) */}
       <div 
-        className="w-full h-2" 
+        className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl" 
         style={{ backgroundColor: `hsl(var(--${cardColor}))` }}
         aria-hidden="true"
       />
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-0 pt-3 px-4 relative z-10">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-xl">{activity.title}</CardTitle>
+          <CardTitle className="text-lg">{activity.title}</CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Activity actions">
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Activity actions">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -80,27 +81,33 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow">
-        <div className="mb-4">
-          <p className="text-sm text-muted-foreground line-clamp-3">
+      <CardContent className="flex-grow py-2 px-4 relative z-10">
+        <div className="mb-2">
+          <p className="text-sm text-muted-foreground line-clamp-2">
             {activity.description}
           </p>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center space-x-2">
           <Badge 
             variant="outline" 
             className={cn(
               "flex items-center gap-1",
-              cardColor && `border-${cardColor} text-${cardColor}`
+              cardColor && `bg-${cardColor}/10 border-${cardColor}/30 text-${cardColor}`
             )}
           >
             <Folder className="h-3 w-3" />
             <span>{activity.parentTitle}</span>
           </Badge>
+          <Badge 
+            variant="outline" 
+            className="bg-muted/50"
+          >
+            Activity
+          </Badge>
         </div>
       </CardContent>
       
-     <CardFooter className="border-t pt-4 flex flex-col gap-3">
+     <CardFooter className="border-t py-2 px-4 flex flex-col gap-2 bg-muted/10 relative z-10">
        <div className="flex justify-between w-full text-muted-foreground text-sm">
          <span>Sessions: {activity.sessions?.length || 0}</span>
          <div className="flex items-center">
@@ -110,8 +117,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
        </div>
         <div className="flex gap-2 w-full">
           <Button 
-            variant="default" 
-            className="w-full" 
+            className="w-full bg-foreground text-background hover:bg-foreground/90 dark:bg-background dark:text-foreground dark:hover:bg-background/90" 
             size="sm"
             onClick={() => onStartTimer(activity)}
           >

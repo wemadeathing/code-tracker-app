@@ -12,7 +12,9 @@ import {
   Timer,
   BookOpen,
   GraduationCap,
-  LayoutList
+  LayoutList,
+  Square,
+  StopCircle
 } from "lucide-react"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -20,6 +22,8 @@ import { FaTasks } from 'react-icons/fa'
 import { useTimer } from '@/contexts/timer-context'
 import { Badge } from '@/components/ui/badge'
 import { useAppContext } from '@/contexts/app-context'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 // Helper function to format seconds to HH:MM:SS or MM:SS
 const formatTime = (seconds: number): string => {
@@ -38,11 +42,16 @@ const formatTime = (seconds: number): string => {
 
 export default function DashboardSideBar() {
   const pathname = usePathname();
-  const { isRunning, seconds, activeActivityId } = useTimer();
+  const { isRunning, seconds, activeActivityId, stopTimer, resetTimer } = useTimer();
   const { activities } = useAppContext();
 
   // Get the current activity name if timer is running
   const currentActivity = activities.find(a => a.id === activeActivityId);
+
+  // Handle stopping the timer
+  const handleStopTimer = () => {
+    stopTimer();
+  };
 
   return (
     <div className="lg:block hidden border-r h-full">
@@ -59,6 +68,24 @@ export default function DashboardSideBar() {
               <Badge variant="outline" className="bg-primary/5 text-primary border-primary">
                 {currentActivity.title}
               </Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 p-0 ml-1 text-primary hover:text-primary/80 hover:bg-primary/10"
+                      onClick={handleStopTimer}
+                    >
+                      <StopCircle className="h-4 w-4" />
+                      <span className="sr-only">Stop Timer</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Stop Timer</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
         </div>

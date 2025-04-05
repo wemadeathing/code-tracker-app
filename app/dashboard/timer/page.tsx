@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Play, Pause, StopCircle, Plus } from 'lucide-react'
+import { Play, Pause, StopCircle, Plus, AlertCircle } from 'lucide-react'
 import { useAppContext } from '@/contexts/app-context'
 import { Textarea } from '@/components/ui/textarea'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useTimer } from '@/contexts/timer-context'
 import { Timer as TimerComponent } from '@/components/ui/timer'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function TimerPage() {
   const router = useRouter()
@@ -38,6 +39,9 @@ export default function TimerPage() {
   const [sessionNotes, setSessionNotes] = useState<string>('')
   const [showCompletionDialog, setShowCompletionDialog] = useState<boolean>(false)
 
+  // Get the current active activity if timer is running
+  const currentActivity = activities.find(activity => activity.id === activeActivityId)
+
   // Get activities for the selected type
   const filteredActivities = activities.filter(activity => {
     if (activityType === 'courses') {
@@ -46,6 +50,19 @@ export default function TimerPage() {
       return activity.parentType === 'project'
     }
   })
+
+  // Sync selected activity with active timer
+  useEffect(() => {
+    if (isRunning && activeActivityId && !selectedActivity) {
+      setSelectedActivity(activeActivityId.toString())
+      
+      // Also set the correct tab based on the active activity
+      const activity = activities.find(a => a.id === activeActivityId)
+      if (activity) {
+        setActivityType(activity.parentType === 'course' ? 'courses' : 'projects')
+      }
+    }
+  }, [isRunning, activeActivityId, selectedActivity, activities])
 
   // Check for activity ID in URL params
   useEffect(() => {
@@ -61,15 +78,16 @@ export default function TimerPage() {
 
   // Complete timer session
   const completeSession = () => {
+    if (!isRunning || !activeActivityId) return
+    
     stopTimer()
     setShowCompletionDialog(true)
   }
 
   // Save completed session
   const saveSession = () => {
-    if (selectedActivity && seconds > 0) {
-      const activityId = parseInt(selectedActivity)
-      addTimeToActivity(activityId, seconds, sessionNotes)
+    if (activeActivityId && seconds > 0) {
+      addTimeToActivity(activeActivityId, seconds, sessionNotes)
       
       // Reset everything
       resetTimer()
@@ -108,13 +126,27 @@ export default function TimerPage() {
     <div className='flex flex-col justify-center items-center w-full px-4 pt-8 gap-6'>
       <div className="w-full max-w-3xl">
         
+        {/* Show alert when timer is already running */}
+        {isRunning && currentActivity && (
+          <Alert className="mb-6 border-primary/50 bg-primary/5">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-primary">Active Timer</AlertTitle>
+            <AlertDescription>
+              Timer is currently running for "{currentActivity.title}" from {currentActivity.parentType === 'course' ? 'course' : 'project'} "{currentActivity.parentTitle}".
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Card className="mb-6">
           <CardContent className="py-6">
             <h2 className="text-lg font-medium mb-4">Activity Selection</h2>
             
             <Tabs value={activityType} onValueChange={(value) => {
               setActivityType(value as 'courses' | 'projects')
-              setSelectedActivity('')
+              // Only clear selection if no timer is running
+              if (!isRunning) {
+                setSelectedActivity('')
+              }
             }}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="courses">Course Activities</TabsTrigger>
@@ -205,7 +237,7 @@ export default function TimerPage() {
                 size="lg" 
                 variant="secondary"
                 onClick={completeSession}
-                disabled={!selectedActivity || !isRunning || activeActivityId !== parseInt(selectedActivity) || seconds === 0}
+                disabled={!isRunning || seconds === 0}
               >
                 <StopCircle className="mr-2 h-4 w-4" />
                 Complete Session
