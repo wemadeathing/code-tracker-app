@@ -12,35 +12,45 @@ const typedDb = db as PrismaClient
 
 // Helper function to get the user ID
 const getUserId = async () => {
-  const session = await auth()
-  const userId = session.userId // Clerk uses camelCase (userId)
-  
-  if (!userId) {
-    throw new Error("You must be signed in to perform this action")
+  try {
+    const session = await auth()
+    const userId = session?.userId // Clerk uses camelCase (userId)
+    
+    if (!userId) {
+      throw new Error("You must be signed in to perform this action")
+    }
+    
+    // Get the database user ID from the Clerk user ID
+    const dbUser = await typedDb.user.findUnique({
+      where: { user_id: userId } // Prisma schema uses snake_case (user_id)
+    })
+    
+    if (!dbUser) {
+      throw new Error("User not found in database")
+    }
+    
+    return dbUser.id
+  } catch (error) {
+    console.error('Error in getUserId:', error)
+    throw error
   }
-  
-  // Get the database user ID from the Clerk user ID
-  const dbUser = await typedDb.user.findUnique({
-    where: { user_id: userId } // Prisma schema uses snake_case (user_id)
-  })
-  
-  if (!dbUser) {
-    throw new Error("User not found in database")
-  }
-  
-  return dbUser.id
 }
 
 // Course operations
 export async function getCourses() {
-  const user_id = await getUserId()
-  
-  const courses = await typedDb.course.findMany({
-    where: { user_id },
-    orderBy: { created_time: 'desc' }
-  })
-  
-  return courses
+  try {
+    const user_id = await getUserId()
+    
+    const courses = await typedDb.course.findMany({
+      where: { user_id },
+      orderBy: { created_time: 'desc' }
+    })
+    
+    return courses
+  } catch (error) {
+    console.error('Error in getCourses:', error)
+    throw error
+  }
 }
 
 export async function addCourse({ title, description, color = "blue" }: { title: string, description?: string, color?: string }) {
