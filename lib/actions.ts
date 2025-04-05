@@ -204,17 +204,8 @@ export async function getActivities() {
     const parent = activity.course || activity.project
     const parentType = activity.course ? 'course' : 'project'
     
-    // Ensure we always have a color, even if parent is missing
-    let parentColor = "purple"; // Default color
-    
-    // For course parents
-    if (activity.course && activity.course.color) {
-      parentColor = activity.course.color;
-    }
-    // For project parents
-    else if (activity.project && activity.project.color) {
-      parentColor = activity.project.color;
-    }
+    // Get the parent's color directly from the parent object
+    const parentColor = parent?.color || "purple" // Only use purple as fallback if no parent color exists
     
     return {
       id: activity.id,
@@ -224,7 +215,7 @@ export async function getActivities() {
       parentId: parent?.id || 0,
       parentTitle: parent?.title || "",
       parentColor,
-      color: activity.color || parentColor, // Use activity's own color if available, otherwise fallback to parent's color
+      color: activity.color || parentColor, // Use activity's own color if available, otherwise use parent's color
       totalTime: formatTimeFromSeconds(total_seconds),
       totalSeconds: total_seconds,
       sessions: activity.sessions.map((session: any) => ({

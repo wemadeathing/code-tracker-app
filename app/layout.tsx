@@ -9,23 +9,23 @@ import './globals.css'
 import { AppProvider } from '@/contexts/app-context'
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://starter.rasmic.xyz"),
+  metadataBase: new URL("https://nexevo.io"),
   title: {
-    default: 'Nextjs Starter Kit',
-    template: `%s | Nextjs Starter Kit`
+    default: 'CodeTrack',
+    template: `%s | CodeTrack`
   },
-  description: 'The Ultimate Nextjs 14 Starter Kit for quickly building your SaaS, giving you time to focus on what really matters',
+  description: 'CodeTrack by Nexevo - The intelligent time tracking solution for developers. Monitor coding sessions, manage projects and courses, and gain insights into your development productivity.',
   openGraph: {
-    description: 'The Ultimate Nextjs 14 Starter Kit for quickly building your SaaS, giving you time to focus on what really matters',
+    description: 'CodeTrack by Nexevo - The intelligent time tracking solution for developers. Monitor coding sessions, manage projects and courses, and gain insights into your development productivity.',
     images: ['https://utfs.io/f/8a428f85-ae83-4ca7-9237-6f8b65411293-eun6ii.png'],
-    url: 'https://starter.rasmic.xyz/'
+    url: 'https://nexevo.io/'
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nextjs Starter Kit',
-    description: 'The Ultimate Nextjs 14 Starter Kit for quickly building your SaaS, giving you time to focus on what really matters',
+    title: 'CodeTrack by Nexevo',
+    description: 'CodeTrack by Nexevo - The intelligent time tracking solution for developers. Monitor coding sessions, manage projects and courses, and gain insights into your development productivity.',
     siteId: "",
-    creator: "@rasmic",
+    creator: "@nexevo",
     creatorId: "",
     images: ['https://utfs.io/f/8a428f85-ae83-4ca7-9237-6f8b65411293-eun6ii.png'],
   },
