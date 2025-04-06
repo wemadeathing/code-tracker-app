@@ -11,24 +11,31 @@ const prismaClientSingleton = () => {
   })
 }
 
+// Check if we already have a Prisma instance in global scope
 const prisma = globalThis.prisma ?? prismaClientSingleton()
 
+export { prisma as db }
+
+// Only do this in development
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prisma = prisma
 }
 
-export { prisma as db }
-
-// Connection management
-prisma.$connect()
-  .then(() => {
+// Export a function to explicitly connect when needed
+export async function connectToDatabase() {
+  try {
+    await prisma.$connect()
     console.log('Successfully connected to database')
-  })
-  .catch((e) => {
+    return true
+  } catch (e) {
     console.error('Failed to connect to database:', e)
-  })
+    throw e
+  }
+}
 
 // Graceful shutdown
-process.on('beforeExit', async () => {
-  await prisma.$disconnect()
-})
+if (process.env.NODE_ENV !== 'production') {
+  process.on('beforeExit', async () => {
+    await prisma.$disconnect()
+  })
+}
