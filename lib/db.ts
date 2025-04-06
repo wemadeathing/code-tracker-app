@@ -11,13 +11,13 @@ const prismaClientSingleton = () => {
   })
 }
 
-export const prisma = globalThis.prisma ?? prismaClientSingleton()
+const prisma = globalThis.prisma ?? prismaClientSingleton()
 
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prisma = prisma
 }
 
-export const db = prisma
+export { prisma as db }
 
 // Connection management
 prisma.$connect()

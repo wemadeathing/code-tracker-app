@@ -11,24 +11,31 @@ import { Prisma } from "@prisma/client"
 const getUserId = async () => {
   try {
     const session = await auth()
-    const userId = session?.userId // Clerk uses camelCase (userId)
+    const userId = session?.userId
     
     if (!userId) {
       throw new Error("You must be signed in to perform this action")
     }
     
-    // Get the database user ID from the Clerk user ID
-    const dbUser = await db.user.findUnique({
-      where: { user_id: userId } // Prisma schema uses snake_case (user_id)
-    })
-    
-    if (!dbUser) {
-      throw new Error("User not found in database")
+    try {
+      const dbUser = await db.user.findUnique({
+        where: { user_id: userId }
+      })
+      
+      if (!dbUser) {
+        throw new Error("User not found in database")
+      }
+      
+      return dbUser.id
+    } catch (error: any) {
+      console.error('Database error in getUserId:', error)
+      throw new Error("Failed to fetch user data")
     }
-    
-    return dbUser.id
-  } catch (error) {
-    console.error('Error in getUserId:', error)
+  } catch (error: any) {
+    console.error('Auth error in getUserId:', error)
+    if (error.message === "You must be signed in to perform this action") {
+      throw error
+    }
     throw new Error("Authentication failed")
   }
 }
@@ -38,15 +45,20 @@ export async function getCourses() {
   try {
     const user_id = await getUserId()
     
-    const courses = await db.course.findMany({
-      where: { user_id },
-      orderBy: { created_time: 'desc' }
-    })
-    
-    return courses
-  } catch (error) {
+    try {
+      const courses = await db.course.findMany({
+        where: { user_id },
+        orderBy: { created_time: 'desc' }
+      })
+      
+      return courses
+    } catch (error: any) {
+      console.error('Database error in getCourses:', error)
+      throw new Error("Failed to fetch courses")
+    }
+  } catch (error: any) {
     console.error('Error in getCourses:', error)
-    throw new Error("Failed to fetch courses")
+    throw error
   }
 }
 
