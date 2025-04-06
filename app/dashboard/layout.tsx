@@ -7,6 +7,7 @@ import { currentUser } from "@clerk/nextjs/server"
 import { initUser } from "@/lib/init-user"
 import { TimerProvider } from "@/contexts/timer-context"
 import { connectToDatabase } from "@/lib/db"
+import Link from "next/link"
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   try {
@@ -22,9 +23,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     
     await initUser()
     
-    const { authorized, message } = await isAuthorized(user.id)
-    if (!authorized) {
-      console.log('authorized check fired')
+    try {
+      const { authorized, message } = await isAuthorized(user.id)
+      if (!authorized) {
+        console.log('Authorization check failed:', message)
+        // Handle unauthorized case more gracefully if needed
+      }
+    } catch (authError) {
+      console.error('Authorization check error:', authError)
+      // Continue without breaking the app - don't throw here
     }
     
     return (
@@ -41,6 +48,18 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     )
   } catch (error) {
     console.error('Error in dashboard layout:', error)
-    throw error // This will trigger Next.js error boundary
+    
+    // Return a fallback UI instead of throwing
+    return (
+      <div className="grid min-h-screen w-full place-items-center">
+        <div className="text-center">
+          <h1 className="text-xl font-bold">Something went wrong</h1>
+          <p>We're working on fixing this issue. Please try again later.</p>
+          <Link href="/" className="mt-4 inline-block text-blue-500 underline">
+            Return Home
+          </Link>
+        </div>
+      </div>
+    )
   }
 }
