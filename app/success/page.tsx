@@ -3,6 +3,9 @@ import NavBar from '@/components/wrapper/navbar';
 import Link from 'next/link';
 import Stripe from 'stripe';
 
+// Force dynamic rendering to avoid static generation issues with headers()
+export const dynamic = "force-dynamic";
+
 // Initialize Stripe with your secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 

@@ -7,9 +7,18 @@ declare global {
   var prisma: PrismaClient | undefined
 }
 
-// Simple prisma client singleton with minimal configuration to reduce issues
+// Simple prisma client singleton with connection pooling configuration
 const prismaClientSingleton = () => {
-  return new PrismaClient()
+  return new PrismaClient({
+    // Add connection pooling configuration
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    },
+    // Reduce log noise during development
+    log: process.env.NODE_ENV === 'development' ? ['error'] : ['error']
+  })
 }
 
 // Use global variable to keep Prisma client instance across hot reloads
@@ -24,8 +33,8 @@ if (process.env.NODE_ENV !== 'production') {
 // Export a function to explicitly connect when needed
 export async function connectToDatabase() {
   try {
-    // Basic connection check
-    await db.$queryRaw`SELECT 1`
+    // Use a simpler connection check that doesn't create prepared statements
+    await db.$connect()
     console.log('Successfully connected to database')
     return true
   } catch (e: any) {
@@ -34,14 +43,14 @@ export async function connectToDatabase() {
     // In production, log the error but don't throw
     if (process.env.NODE_ENV === 'production') {
       console.warn('Continuing without confirmed database connection')
-      return true // Return true to allow the app to continue
+      return true
     }
     
     throw e
   }
 }
 
-// Try to disconnect when the app is shutting down
+// Disconnect on app shutdown
 process.on('beforeExit', async () => {
   await db.$disconnect()
 })

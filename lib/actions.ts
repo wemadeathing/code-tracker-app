@@ -12,44 +12,56 @@ const getUserId = async (): Promise<number> => {
   try {
     // Get user session
     const session = await auth()
-    const userId = session?.userId
+    
+    // This is important - in the latest Clerk versions, session might 
+    // be an empty object rather than null when not authenticated
+    const userId = session?.userId || null
     
     if (!userId) {
-      console.error('User not authenticated')
-      // Always throw in both dev and prod, but with different messages
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error("Authentication required")
-      } else {
-        throw new Error("You must be signed in to perform this action")
-      }
+      console.error('User not authenticated - no userId in session:', session)
+      throw new Error("You must be signed in to perform this action")
     }
     
     try {
       // Find the user in our database
+      console.log('Looking up user in database with Clerk ID:', userId)
       const dbUser = await db.user.findUnique({
         where: { user_id: userId }
       })
       
       if (!dbUser) {
-        console.error('User not found in database:', userId)
-        throw new Error("User not found in database")
+        console.error('User not found in database for Clerk ID:', userId)
+        
+        // Attempt to initialize user directly without requiring the module
+        // This avoids potential circular dependency issues
+        try {
+          console.log('Attempting to initialize user directly...')
+          
+          // Call initUser function directly from its module
+          const { initUser } = await import('./init-user')
+          const initializedUser = await initUser()
+          
+          if (!initializedUser) {
+            console.error('Failed to initialize user during getUserId')
+            throw new Error("User not found in database and initialization failed")
+          }
+          
+          return initializedUser.id
+        } catch (initError) {
+          console.error('Error initializing user:', initError)
+          throw new Error("Failed to initialize user")
+        }
       }
       
+      console.log('User found in database, id:', dbUser.id)
       return dbUser.id
     } catch (error: any) {
       console.error('Database error in getUserId:', error)
-      throw new Error("Failed to fetch user data")
+      throw new Error(`Failed to fetch user data: ${error.message}`)
     }
   } catch (error: any) {
     console.error('Auth error in getUserId:', error)
-    
-    // In development, be more specific about errors
-    if (error.message === "You must be signed in to perform this action") {
-      throw error
-    }
-    
-    // Default error
-    throw new Error("Authentication failed: " + (error.message || "Unknown error"))
+    throw new Error(`Authentication failed: ${error.message}`)
   }
 }
 
@@ -278,96 +290,143 @@ export async function deleteProject(id: number) {
 
 // Activity operations
 export async function getActivities() {
-  const user_id = await getUserId()
-  
-  const activities = await db.activity.findMany({
-    where: { user_id },
-    orderBy: { created_time: 'desc' },
-    include: {
-      course: true,
-      project: true,
-      sessions: {
-        orderBy: { created_time: 'desc' }
+  try {
+    const user_id = await getUserId()
+    
+    // Fetch all activities
+    const activities = await db.activity.findMany({
+      where: { user_id },
+      orderBy: { created_time: 'desc' },
+      include: {
+        sessions: {
+          orderBy: { start_time: 'desc' }
+        },
+        course: {
+          select: {
+            title: true,
+            color: true
+          }
+        },
+        project: {
+          select: {
+            title: true,
+            color: true
+          }
+        }
       }
+    })
+    
+    // Transform data for the client
+    const transformedActivities = activities.map(activity => {
+      const parentType = activity.course_id ? 'course' : 'project'
+      const parent = parentType === 'course' ? activity.course : activity.project
+      const totalSeconds = activity.sessions.reduce((sum, session) => sum + session.duration, 0)
+      
+      return {
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        parentType,
+        parentId: parentType === 'course' ? activity.course_id : activity.project_id,
+        parentTitle: parent?.title || '',
+        parentColor: parent?.color || 'gray',
+        color: activity.color || null,
+        totalSeconds,
+        totalTime: formatTimeFromSeconds(totalSeconds),
+        sessions: activity.sessions.map(session => ({
+          id: session.id,
+          duration: session.duration,
+          date: session.start_time,
+          notes: session.notes
+        }))
+      }
+    })
+    
+    return transformedActivities
+  } catch (error) {
+    console.error('Error getting activities:', error)
+    if (process.env.NODE_ENV === 'production') {
+      // Return empty array in production instead of crashing
+      return []
     }
-  })
-  
-  return activities.map((activity: any) => {
-    const total_seconds = activity.sessions.reduce((total: number, session: any) => {
-      return total + session.duration
-    }, 0)
-    
-    const parent = activity.course || activity.project
-    // Ensure the parentType is correctly typed as 'course' | 'project'
-    const parentType = activity.course ? 'course' as const : 'project' as const
-    
-    // Get the parent's color directly from the parent object
-    const parentColor = parent?.color || "purple" // Only use purple as fallback if no parent color exists
-    
-    return {
-      id: activity.id,
-      title: activity.title,
-      description: activity.description || "",
-      parentType,
-      parentId: parent?.id || 0,
-      parentTitle: parent?.title || "",
-      parentColor,
-      color: activity.color || parentColor, // Use activity's own color if available, otherwise use parent's color
-      totalTime: formatTimeFromSeconds(total_seconds),
-      totalSeconds: total_seconds,
-      sessions: activity.sessions.map((session: any) => ({
-        id: session.id,
-        duration: session.duration,
-        date: session.start_time,
-        notes: session.notes || ""
-      }))
-    }
-  })
+    throw error
+  }
 }
 
-export async function addActivity({ 
-  title, 
-  description, 
-  parentType, 
-  parentId,
-  color = "purple"
-}: { 
-  title: string, 
-  description?: string, 
-  parentType: 'course' | 'project', 
-  parentId: number,
-  color?: string 
+export async function addActivity({
+  title,
+  description,
+  color,
+  parentType,
+  parentId
+}: {
+  title: string,
+  description?: string,
+  color?: string,
+  parentType: 'course' | 'project',
+  parentId: number
 }) {
-  const user_id = await getUserId()
-  
-  // Create data object with common fields
-  const data: any = {
-    title,
-    description: description || null, // Ensure null is used for empty descriptions
-    color,
-    user_id
-  }
-  
-  // Add parent reference based on type
-  if (parentType === 'course') {
-    data.course_id = parentId
-  } else if (parentType === 'project') {
-    data.project_id = parentId
-  }
-  
-  const activity = await db.activity.create({
-    data
-  })
-  
-  revalidatePath('/dashboard/activities')
-  revalidatePath(`/dashboard/${parentType}s`)
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  
-  // Convert to camelCase fields for frontend
-  return {
-    ...activity,
-    parentType,
-    parentId
+  try {
+    console.log(`Creating activity: ${title} for ${parentType} ID: ${parentId}`)
+    const user_id = await getUserId()
+    
+    // Verify parent exists and belongs to user
+    if (parentType === 'course') {
+      const course = await db.course.findFirst({
+        where: {
+          id: parentId,
+          user_id
+        }
+      })
+      
+      if (!course) {
+        console.error(`Course not found: ${parentId} for user: ${user_id}`)
+        throw new Error("Course not found or does not belong to user")
+      }
+    } else if (parentType === 'project') {
+      const project = await db.project.findFirst({
+        where: {
+          id: parentId,
+          user_id
+        }
+      })
+      
+      if (!project) {
+        console.error(`Project not found: ${parentId} for user: ${user_id}`)
+        throw new Error("Project not found or does not belong to user")
+      }
+    }
+    
+    // Create the activity with the right parent
+    const activityData: any = {
+      title,
+      description,
+      color,
+      user_id
+    }
+    
+    // Add the right parent ID
+    if (parentType === 'course') {
+      activityData.course_id = parentId
+    } else {
+      activityData.project_id = parentId
+    }
+    
+    const activity = await db.activity.create({
+      data: activityData
+    })
+    
+    console.log(`Activity created: ${activity.id}`)
+    
+    // Revalidate paths
+    revalidatePath(`/dashboard/${parentType}s`)
+    revalidatePath('/dashboard/activities')
+    revalidatePath('/dashboard')
+    
+    return activity
+  } catch (error) {
+    console.error('Error adding activity:', error)
+    throw error
   }
 }
 
@@ -454,58 +513,75 @@ export async function deleteActivity(id: number) {
 }
 
 // Session operations
-export async function addSession(
-  activity_id: number, 
-  { duration, notes, date }: { duration: number, notes?: string, date?: Date }
-) {
-  const user_id = await getUserId()
-  
-  // Verify the activity belongs to the user
-  const activity = await db.activity.findFirst({
-    where: {
-      id: activity_id,
-      user_id
-    }
-  })
-  
-  if (!activity) {
-    throw new Error("Activity not found or does not belong to user")
-  }
-  
-  const session = await db.session.create({
-    data: {
-      start_time: date || new Date(),
-      duration,
-      notes,
-      activity_id,
-      user_id
-    }
-  })
-  
-  // Update streak data - create or update for the session date
-  const sessionDate = date || new Date()
-  const streakDate = new Date(sessionDate)
-  streakDate.setHours(0, 0, 0, 0)
-  
-  await db.streak.upsert({
-    where: {
-      user_id_date: {
-        user_id,
-        date: streakDate
+export async function addSession(activityId: number, sessionData: { duration: number, notes: string, date?: Date }) {
+  try {
+    const user_id = await getUserId()
+    
+    // Verify the activity belongs to the user
+    const activity = await db.activity.findFirst({
+      where: {
+        id: activityId,
+        user_id
       }
-    },
-    update: {},
-    create: {
-      date: streakDate,
-      user_id
+    })
+    
+    if (!activity) {
+      console.error(`Activity not found: ${activityId} for user: ${user_id}`)
+      throw new Error("Activity not found or does not belong to user")
     }
-  })
-  
-  revalidatePath('/dashboard/courses')
-  revalidatePath('/dashboard/projects')
-  revalidatePath('/dashboard/timer')
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  return session
+    
+    // Create the session
+    const startTime = sessionData.date || new Date()
+    
+    const session = await db.session.create({
+      data: {
+        start_time: startTime,
+        duration: sessionData.duration,
+        notes: sessionData.notes,
+        activity_id: activityId,
+        user_id
+      }
+    })
+    
+    console.log(`Session created for activity ${activityId}, duration: ${sessionData.duration}s`)
+    
+    // Also update streaks
+    try {
+      const today = new Date(startTime)
+      today.setHours(0,0,0,0) // Start of day
+      
+      // Check if a streak already exists for this day
+      const existingStreak = await db.streak.findFirst({
+        where: {
+          user_id,
+          date: today
+        }
+      })
+      
+      // Only create a streak if it doesn't already exist
+      if (!existingStreak) {
+        await db.streak.create({
+          data: {
+            date: today,
+            user_id
+          }
+        })
+        console.log(`Streak created for ${today.toISOString().split('T')[0]}`)
+      }
+    } catch (streakError) {
+      // Don't fail the whole operation if streak fails
+      console.error('Error creating streak:', streakError)
+    }
+    
+    revalidatePath('/dashboard/sessions')
+    revalidatePath('/dashboard/activities')
+    revalidatePath('/dashboard')
+    
+    return session
+  } catch (error) {
+    console.error('Error adding session:', error)
+    throw error
+  }
 }
 
 export async function deleteSession(id: number) {

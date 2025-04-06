@@ -138,40 +138,89 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Load data from database on component mount and auth state change
   useEffect(() => {
     const fetchData = async () => {
-      // Only fetch data if user is signed in
-      if (!isLoaded || !isSignedIn) {
+      // Only fetch data if auth state is loaded
+      if (!isLoaded) {
+        console.log('Auth state not yet loaded, waiting...')
+        return
+      }
+      
+      console.log('Auth state loaded, isSignedIn:', isSignedIn)
+      
+      if (!isSignedIn) {
+        console.log('User not signed in, clearing data')
         setIsLoading(false)
+        setCourses([])
+        setProjects([])
+        setActivities([])
         return
       }
 
       try {
         setIsLoading(true)
+        console.log("User is signed in, fetching data from server...")
         
-        // Fetch courses from the database
-        const coursesData = await getCourses()
-        if (coursesData) {
-          setCourses(coursesData)
+        // Use Promise.allSettled to fetch all data and handle errors individually
+        const [coursesResult, projectsResult, activitiesResult] = await Promise.allSettled([
+          getCourses().catch(err => {
+            console.error('Error fetching courses:', err)
+            return []
+          }),
+          getProjects().catch(err => {
+            console.error('Error fetching projects:', err)
+            return []
+          }),
+          getActivities().catch(err => {
+            console.error('Error fetching activities:', err)
+            return []
+          })
+        ])
+        
+        // Handle each result individually
+        if (coursesResult.status === 'fulfilled' && coursesResult.value) {
+          console.log(`Loaded ${coursesResult.value.length} courses`)
+          setCourses(coursesResult.value)
         }
         
-        // Fetch projects from the database
-        const projectsData = await getProjects()
-        if (projectsData) {
-          setProjects(projectsData)
+        if (projectsResult.status === 'fulfilled' && projectsResult.value) {
+          console.log(`Loaded ${projectsResult.value.length} projects`)
+          setProjects(projectsResult.value)
         }
         
-        // Fetch activities from the database
-        const activitiesData = await getActivities()
-        if (activitiesData) {
-          setActivities(activitiesData)
+        if (activitiesResult.status === 'fulfilled' && activitiesResult.value) {
+          console.log(`Loaded ${activitiesResult.value.length} activities`)
+          // Ensure the activity data has the correct parentType
+          const typedActivities = activitiesResult.value.map(activity => {
+            return {
+              ...activity,
+              // Explicitly type parentType as 'course' | 'project'
+              parentType: activity.parentType === 'course' ? 'course' : 'project'
+            } as ActivityType
+          })
+          setActivities(typedActivities)
         }
       } catch (error) {
-        console.error('Error fetching data:', error)
+        console.error('Error in data fetching:', error)
       } finally {
         setIsLoading(false)
       }
     }
     
     fetchData()
+    
+    // Set up a refresh interval if the user is signed in
+    let refreshInterval: NodeJS.Timeout | null = null
+    
+    if (isSignedIn) {
+      refreshInterval = setInterval(() => {
+        fetchData()
+      }, 5 * 60 * 1000) // Refresh every 5 minutes
+    }
+    
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+      }
+    }
   }, [isSignedIn, isLoaded])
 
   // Course CRUD operations

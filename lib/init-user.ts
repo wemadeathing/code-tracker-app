@@ -9,10 +9,12 @@ export async function initUser() {
   try {
     // Get the current user from Clerk
     const session = await auth()
-    const user_id = session?.userId
+    
+    // Important - handle empty session objects properly
+    const user_id = session?.userId || null
     
     if (!user_id) {
-      console.log("No user ID found in session")
+      console.log("No user ID found in session, session:", session)
       return null
     }
     
@@ -45,6 +47,8 @@ export async function initUser() {
           profile_image_url: userProfile.imageUrl || "",
         }
       })
+      
+      console.log("Successfully created user in database, now creating demo data...")
       
       // Create some initial demo courses
       const courses = [
@@ -110,6 +114,7 @@ export async function initUser() {
         }
       }
       
+      console.log("User initialization complete with demo data")
       return newUser;
     } catch (dbError) {
       console.error("Database error in initUser:", dbError);
