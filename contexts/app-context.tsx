@@ -188,14 +188,54 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         
         if (activitiesResult.status === 'fulfilled' && activitiesResult.value) {
           console.log(`Loaded ${activitiesResult.value.length} activities`)
-          // Ensure the activity data has the correct parentType
+          // Ensure the activity data is correctly mapped to ActivityType
           const typedActivities = activitiesResult.value.map(activity => {
-            return {
-              ...activity,
-              // Explicitly type parentType as 'course' | 'project'
-              parentType: activity.parentType === 'course' ? 'course' : 'project'
-            } as ActivityType
-          })
+            const parentId = activity.course_id ?? activity.project_id;
+            if (parentId === null || parentId === undefined) {
+              console.error("Activity is missing parent ID:", activity);
+              return null;
+            }
+
+            const parentType = activity.course_id ? 'course' : 'project';
+            const parent = parentType === 'course'
+              ? courses.find(c => c.id === parentId)
+              : projects.find(p => p.id === parentId);
+
+            if (!parent) {
+              console.error(`Parent not found for activity: ${activity.id}, parentType: ${parentType}, parentId: ${parentId}`);
+              return null;
+            }
+
+            // Map raw sessions to the structure defined in ActivityType
+            const mappedSessions = (activity.sessions || []).map(session => ({
+              id: session.id,
+              duration: session.duration,
+              // Assuming raw session has start_time which should be used as date
+              date: new Date(session.start_time), 
+              notes: session.notes,
+            }));
+
+            // Calculate total seconds from mapped sessions
+            const totalSeconds = mappedSessions.reduce((sum, session) => sum + session.duration, 0);
+
+            // Construct the final ActivityType object explicitly
+            const finalActivity: ActivityType = {
+              id: activity.id,
+              title: activity.title,
+              description: activity.description,
+              parentType: parentType,
+              parentId: parentId,
+              parentTitle: parent.title,
+              parentColor: parent.color,
+              color: activity.color ?? undefined, // Convert null to undefined
+              sessions: mappedSessions,
+              totalSeconds: totalSeconds,
+              totalTime: formatTimeFromSeconds(totalSeconds), // Use the helper function
+            };
+
+            return finalActivity;
+          }).filter((activity): activity is ActivityType => activity !== null); // Filter out nulls
+
           setActivities(typedActivities)
         }
       } catch (error) {
