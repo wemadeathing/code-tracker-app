@@ -72,6 +72,7 @@ export async function POST(req: Request) {
           message: "User info inserted",
         });
       } catch (error: any) {
+        console.error("Error during user.created processing:", error);
         return NextResponse.json({
           status: 400,
           message: error.message,
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
           message: "User info updated",
         });
       } catch (error: any) {
+        console.error("Error during user.updated processing:", error);
         return NextResponse.json({
           status: 400,
           message: error.message,
@@ -107,5 +109,6 @@ export async function POST(req: Request) {
       });
   }
 
-  return new Response("", { status: 201 });
+  // This response is likely unreachable if all cases return
+  // return new Response("", { status: 201 });
 }

@@ -37,70 +37,8 @@ export async function initUser() {
     return existingUser
   }
   
-  // Create the user in our database
-  const newUser = await typedDb.user.create({
-    data: {
-      user_id,
-      email: "", // You'll need to get this from Clerk's user profile API
-      first_name: "",
-      last_name: "",
-      profile_image_url: "",
-    }
-  })
-  
-  // Create some initial demo courses
-  const courses = [
-    {
-      title: "Learn Python",
-      description: "A comprehensive course covering Python basics to advanced concepts",
-      color: "green",
-      user_id: newUser.id
-    },
-    {
-      title: "Advanced JavaScript",
-      description: "Deep dive into modern JavaScript and advanced programming patterns",
-      color: "yellow",
-      user_id: newUser.id
-    },
-    {
-      title: "Web Development Bootcamp",
-      description: "Full-stack web development course covering frontend and backend technologies",
-      color: "blue",
-      user_id: newUser.id
-    }
-  ]
-  
-  // Create some initial demo projects
-  const projects = [
-    {
-      title: "Personal Portfolio",
-      description: "Building a responsive portfolio website using React and Tailwind CSS",
-      color: "blue",
-      user_id: newUser.id
-    },
-    {
-      title: "E-commerce App",
-      description: "Full-stack e-commerce application with Next.js and Supabase",
-      color: "purple",
-      user_id: newUser.id
-    },
-    {
-      title: "Mobile Weather App",
-      description: "React Native weather application with API integration",
-      color: "teal",
-      user_id: newUser.id
-    }
-  ]
-  
-  // Create courses one by one
-  for (const courseData of courses) {
-    await typedDb.course.create({ data: courseData });
-  }
-  
-  // Create projects one by one
-  for (const projectData of projects) {
-    await typedDb.project.create({ data: projectData });
-  }
-  
-  return newUser
+  // If the user doesn't exist, the webhook should handle creation.
+  // We log a warning here as the user should ideally exist by now.
+  console.warn(`initUser: User with Clerk ID ${user_id} not found in DB. Webhook might be delayed or failed.`);
+  return null; // Stop execution here, do not create user or demo data
 }

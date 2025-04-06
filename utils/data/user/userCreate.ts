@@ -26,6 +26,15 @@ export const userCreate = async ({
   );
 
   try {
+    // Log the values being passed to insert
+    console.log("Attempting to insert user with data:", {
+      email,
+      first_name,
+      last_name,
+      profile_image_url,
+      user_id,
+    });
+
     const { data, error } = await supabase
       .from("user")
       .insert([

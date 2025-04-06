@@ -4,7 +4,7 @@ import DashboardTopNav from "./_components/dashbord-top-nav"
 import { isAuthorized } from "@/utils/data/user/isAuthorized"
 import { redirect } from "next/navigation"
 import { currentUser } from "@clerk/nextjs/server"
-import { initUser } from "@/lib/init-user"
+// import { initUser } from "@/lib/init-user" // Keep import commented out
 import { TimerProvider } from "@/contexts/timer-context"
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -15,11 +15,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     return null
   }
   
-  await initUser()
+  // await initUser() // Keep this call removed/commented out
   
   const { authorized, message } = await isAuthorized(user.id)
   if (!authorized) {
     console.log('authorized check fired')
+    // Depending on requirements, might redirect or show a message here
+    // For now, just logging
   }
   
   return (
