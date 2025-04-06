@@ -11,11 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useState, useEffect, useRef } from 'react'
 import { ActivityChart } from '@/components/ui/activity-chart'
 import { useAppContext } from '@/contexts/app-context'
-import { format, startOfDay, startOfWeek, startOfMonth, subDays, isWithinInterval, eachDayOfInterval } from 'date-fns'
+import { format, startOfDay, startOfWeek, startOfMonth, subDays, isWithinInterval, eachDayOfInterval, isValid } from 'date-fns'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+
+// Helper function to check if a date is valid
+function isValidDate(date: any): boolean {
+  return date instanceof Date && isValid(date) && !isNaN(date.getTime());
+}
 
 export default function Dashboard() {
   const { activities, formatTimeFromSeconds, addTimeToActivity } = useAppContext()
@@ -52,7 +57,10 @@ export default function Dashboard() {
       if (!activity.sessions) return
       
       activity.sessions.forEach(session => {
+        // Validate the date
         const sessionDate = new Date(session.date)
+        if (!isValidDate(sessionDate)) return // Skip invalid dates
+        
         const sessionDay = startOfDay(sessionDate)
         
         // Add to unique dates set for streak calculation
@@ -115,20 +123,26 @@ export default function Dashboard() {
     })
   }, [activities])
   
-  // Get recent sessions for the Recent Sessions card
+  // Get recent sessions for the Recent Sessions card - WITH DATE VALIDATION
   const recentSessions = activities
     .flatMap(activity => {
       if (!activity.sessions) return []
       
-      return activity.sessions.map(session => ({
-        activityId: activity.id,
-        activityTitle: activity.title,
-        date: new Date(session.date),
-        duration: session.duration,
-        activityColor: activity.parentColor || "primary"
-      }))
+      return activity.sessions.map(session => {
+        // Create and validate the date
+        const sessionDate = new Date(session.date)
+        
+        return {
+          activityId: activity.id,
+          activityTitle: activity.title,
+          // Use the date only if it's valid
+          date: isValidDate(sessionDate) ? sessionDate : new Date(), // Fallback to current date
+          duration: session.duration,
+          activityColor: activity.parentColor || "primary"
+        }
+      })
     })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
     .slice(0, 5)
 
   // Get top activities for the Activity Progress card
@@ -136,16 +150,19 @@ export default function Dashboard() {
     .sort((a, b) => (b.totalSeconds || 0) - (a.totalSeconds || 0))
     .slice(0, 5)
 
-  // Prepare activities for ActivityChart by ensuring they have the right structure
+  // Prepare activities for ActivityChart - WITH DATE VALIDATION
   const chartActivities = activities.map(activity => ({
     id: activity.id,
     title: activity.title,
     parentColor: activity.parentColor || 'primary',
-    sessions: activity.sessions?.map(session => ({
-      duration: session.duration,
-      date: new Date(session.date),
-      notes: session.notes || ""
-    })) || []
+    sessions: activity.sessions?.map(session => {
+      const sessionDate = new Date(session.date)
+      return {
+        duration: session.duration,
+        date: isValidDate(sessionDate) ? sessionDate : new Date(), // Use fallback
+        notes: session.notes || ""
+      }
+    }) || []
   }))
 
   // Function to log past time with a specific date
@@ -160,7 +177,7 @@ export default function Dashboard() {
 
   // Handle date selection
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
+    if (date && isValidDate(date)) {
       setSelectedDate(date);
     }
   };
@@ -216,7 +233,7 @@ export default function Dashboard() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(selectedDate, "MMMM do, yyyy")}
+                      {isValidDate(selectedDate) ? format(selectedDate, "MMMM do, yyyy") : "Invalid date"}
                     </div>
                     <div className="p-3 border rounded-md">
                       <CalendarComponent
@@ -289,7 +306,7 @@ export default function Dashboard() {
                     const activityId = parseInt(selectedActivity);
                     
                     // Log the time with the selected date
-                    if (selectedDate) {
+                    if (isValidDate(selectedDate)) {
                       logPastTime(activityId, totalSeconds, notes, selectedDate);
                     }
                     
@@ -402,7 +419,9 @@ export default function Dashboard() {
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: `hsl(var(--${session.activityColor}))` }}></div>
                         <div>
                           <div className="font-medium">{session.activityTitle}</div>
-                          <div className="text-xs text-muted-foreground">{format(session.date, 'dd/MM/yyyy')}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {isValidDate(session.date) ? format(session.date, 'dd/MM/yyyy') : 'Invalid date'}
+                          </div>
                         </div>
                       </div>
                       <div className="text-sm">{formatTimeFromSeconds(session.duration)}</div>

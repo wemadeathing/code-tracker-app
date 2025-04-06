@@ -6,6 +6,7 @@ import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
 import { formatTimeFromSeconds } from "./utils"
 import { Prisma } from "@prisma/client"
+import { safeDatabaseOperation } from './db-utils'
 
 // Helper function to get the user ID
 const getUserId = async (): Promise<number> => {
@@ -70,21 +71,16 @@ export async function getCourses() {
   try {
     const user_id = await getUserId()
     
-    try {
-      const courses = await db.course.findMany({
-        where: { user_id },
-        orderBy: { created_time: 'desc' }
-      })
-      
-      return courses
-    } catch (error: any) {
-      console.error('Database error in getCourses:', error)
-      // In production, return empty array rather than error
-      if (process.env.NODE_ENV === 'production') {
-        return []
-      }
-      throw new Error("Failed to fetch courses")
-    }
+    return await safeDatabaseOperation(
+      async () => {
+        const courses = await db.course.findMany({
+          where: { user_id },
+          orderBy: { created_time: 'desc' }
+        })
+        return courses
+      },
+      [] // Return empty array as fallback
+    )
   } catch (error: any) {
     console.error('Error in getCourses:', error)
     // In production, return empty array rather than error
@@ -176,35 +172,19 @@ export async function getProjects() {
   try {
     const user_id = await getUserId()
     
-    const projects = await db.project.findMany({
-      where: { user_id },
-      orderBy: { created_time: 'desc' },
-      include: {
-        activities: {
-          include: {
-            sessions: true
-          }
-        }
-      }
-    })
-    
-    // Calculate stats for each project
-    return projects.map((project: any) => {
-      const total_time = project.activities.reduce((acc: number, activity: any) => {
-        const activity_time = activity.sessions.reduce((total: number, session: any) => {
-          return total + session.duration
-        }, 0)
-        return acc + activity_time
-      }, 0)
-      
-      return {
-        ...project,
-        total_activities: project.activities.length,
-        total_time: formatTimeFromSeconds(total_time)
-      }
-    })
-  } catch (error) {
-    console.error("Error getting projects:", error)
+    return await safeDatabaseOperation(
+      async () => {
+        const projects = await db.project.findMany({
+          where: { user_id },
+          orderBy: { created_time: 'desc' }
+        })
+        return projects
+      },
+      [] // Return empty array as fallback
+    )
+  } catch (error: any) {
+    console.error('Error in getProjects:', error)
+    // In production, return empty array rather than error
     if (process.env.NODE_ENV === 'production') {
       return []
     }
@@ -293,60 +273,25 @@ export async function getActivities() {
   try {
     const user_id = await getUserId()
     
-    // Fetch all activities
-    const activities = await db.activity.findMany({
-      where: { user_id },
-      orderBy: { created_time: 'desc' },
-      include: {
-        sessions: {
-          orderBy: { start_time: 'desc' }
-        },
-        course: {
-          select: {
-            title: true,
-            color: true
+    return await safeDatabaseOperation(
+      async () => {
+        const activities = await db.activity.findMany({
+          where: { user_id },
+          orderBy: { created_time: 'desc' },
+          include: {
+            sessions: {
+              orderBy: { start_time: 'desc' }
+            }
           }
-        },
-        project: {
-          select: {
-            title: true,
-            color: true
-          }
-        }
-      }
-    })
-    
-    // Transform data for the client
-    const transformedActivities = activities.map(activity => {
-      const parentType = activity.course_id ? 'course' : 'project'
-      const parent = parentType === 'course' ? activity.course : activity.project
-      const totalSeconds = activity.sessions.reduce((sum, session) => sum + session.duration, 0)
-      
-      return {
-        id: activity.id,
-        title: activity.title,
-        description: activity.description,
-        parentType,
-        parentId: parentType === 'course' ? activity.course_id : activity.project_id,
-        parentTitle: parent?.title || '',
-        parentColor: parent?.color || 'gray',
-        color: activity.color || null,
-        totalSeconds,
-        totalTime: formatTimeFromSeconds(totalSeconds),
-        sessions: activity.sessions.map(session => ({
-          id: session.id,
-          duration: session.duration,
-          date: session.start_time,
-          notes: session.notes
-        }))
-      }
-    })
-    
-    return transformedActivities
-  } catch (error) {
-    console.error('Error getting activities:', error)
+        })
+        return activities
+      },
+      [] // Return empty array as fallback
+    )
+  } catch (error: any) {
+    console.error('Error in getActivities:', error)
+    // In production, return empty array rather than error
     if (process.env.NODE_ENV === 'production') {
-      // Return empty array in production instead of crashing
       return []
     }
     throw error

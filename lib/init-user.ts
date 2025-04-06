@@ -50,88 +50,90 @@ export async function initUser() {
       
       console.log("Successfully created user in database, now creating demo data...")
       
-      // Create some initial demo courses
-      const courses = [
-        {
-          title: "Learn Python",
-          description: "A comprehensive course covering Python basics to advanced concepts",
-          color: "green",
-          user_id: newUser.id
-        },
-        {
-          title: "Advanced JavaScript",
-          description: "Deep dive into modern JavaScript and advanced programming patterns",
-          color: "yellow",
-          user_id: newUser.id
-        },
-        {
-          title: "Web Development Bootcamp",
-          description: "Full-stack web development course covering frontend and backend technologies",
-          color: "blue",
-          user_id: newUser.id
-        }
-      ]
-      
-      // Create some initial demo projects
-      const projects = [
-        {
-          title: "Personal Portfolio",
-          description: "Building a responsive portfolio website using React and Tailwind CSS",
-          color: "blue",
-          user_id: newUser.id
-        },
-        {
-          title: "E-commerce App",
-          description: "Full-stack e-commerce application with Next.js and Supabase",
-          color: "purple",
-          user_id: newUser.id
-        },
-        {
-          title: "Mobile Weather App",
-          description: "React Native weather application with API integration",
-          color: "teal",
-          user_id: newUser.id
-        }
-      ]
-      
-      // Create courses directly without transaction
-      for (const courseData of courses) {
-        try {
-          await db.course.create({ data: courseData });
-        } catch (e) {
-          console.error("Failed to create course:", e);
-          // Continue with other courses if one fails
-        }
-      }
-      
-      // Create projects directly without transaction
-      for (const projectData of projects) {
-        try {
-          await db.project.create({ data: projectData });
-        } catch (e) {
-          console.error("Failed to create project:", e);
-          // Continue with other projects if one fails
-        }
-      }
+      // Create initial demo data in a transaction to ensure consistency
+      await db.$transaction(async (tx) => {
+        // Create some initial demo courses
+        const courses = [
+          {
+            title: "Learn Python",
+            description: "A comprehensive course covering Python basics to advanced concepts",
+            color: "green",
+            user_id: newUser.id
+          },
+          {
+            title: "Advanced JavaScript",
+            description: "Deep dive into modern JavaScript and advanced programming patterns",
+            color: "yellow",
+            user_id: newUser.id
+          },
+          {
+            title: "Web Development Bootcamp",
+            description: "Full-stack web development course covering frontend and backend technologies",
+            color: "blue",
+            user_id: newUser.id
+          }
+        ]
+        
+        // Create some initial demo projects
+        const projects = [
+          {
+            title: "Personal Portfolio",
+            description: "Building a responsive portfolio website using React and Tailwind CSS",
+            color: "blue",
+            user_id: newUser.id
+          },
+          {
+            title: "E-commerce App",
+            description: "Full-stack e-commerce application with Next.js and Supabase",
+            color: "purple",
+            user_id: newUser.id
+          },
+          {
+            title: "Mobile Weather App",
+            description: "React Native weather application with API integration",
+            color: "teal",
+            user_id: newUser.id
+          }
+        ]
+        
+        // Create all courses in a single batch
+        await tx.course.createMany({
+          data: courses,
+          skipDuplicates: true
+        })
+        
+        // Create all projects in a single batch
+        await tx.project.createMany({
+          data: projects,
+          skipDuplicates: true
+        })
+      })
       
       console.log("User initialization complete with demo data")
-      return newUser;
-    } catch (dbError) {
-      console.error("Database error in initUser:", dbError);
+      return newUser
+    } catch (dbError: any) {
+      console.error("Database error in initUser:", {
+        error: dbError,
+        userId: user_id,
+        stack: process.env.NODE_ENV === 'development' ? dbError.stack : undefined
+      })
       
-      // In production, don't crash the app
+      // In production, don't crash the app but log the error
       if (process.env.NODE_ENV === 'production') {
-        return null;
+        return null
       }
-      throw dbError;
+      throw dbError
     }
-  } catch (error) {
-    console.error("Error in initUser:", error);
+  } catch (error: any) {
+    console.error("Error in initUser:", {
+      error,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
     
-    // In production, don't crash the app
+    // In production, don't crash the app but log the error
     if (process.env.NODE_ENV === 'production') {
-      return null;
+      return null
     }
-    throw error;
+    throw error
   }
 }

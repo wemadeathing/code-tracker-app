@@ -9,16 +9,16 @@ datasource db {
 }
 
 model user {
-  id                Int         @id @default(autoincrement())
-  created_time      DateTime    @default(now())
-  email             String      @unique
+  id                Int        @id @default(autoincrement())
+  created_time      DateTime   @default(now())
+  email             String     @unique
   first_name        String?
   last_name         String?
   profile_image_url String?
-  user_id           String      @unique // This is the Clerk user ID
+  user_id           String     @unique
+  activities        activity[]
   courses           course[]
   projects          project[]
-  activities        activity[]
   sessions          session[]
   streaks           streak[]
 }
@@ -30,9 +30,9 @@ model course {
   title        String
   description  String?
   color        String     @default("blue")
-  user         user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id      Int
   activities   activity[]
+  user         user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
 }
@@ -44,9 +44,9 @@ model project {
   title        String
   description  String?
   color        String     @default("green")
-  user         user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id      Int
   activities   activity[]
+  user         user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
 }
@@ -57,14 +57,13 @@ model activity {
   updated_time DateTime  @updatedAt
   title        String
   description  String?
-  color        String?   @default("purple") 
-  // Parent can be either a course or a project
-  course       course?   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  color        String    @default("purple")
   course_id    Int?
-  project      project?  @relation(fields: [project_id], references: [id], onDelete: Cascade)
   project_id   Int?
-  user         user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id      Int
+  course       course?   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  project      project?  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user         user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   sessions     session[]
 
   @@index([user_id])
@@ -77,12 +76,12 @@ model session {
   created_time DateTime @default(now())
   updated_time DateTime @updatedAt
   start_time   DateTime
-  duration     Int      // Duration in seconds
+  duration     Int
   notes        String?
-  activity     activity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
   activity_id  Int
-  user         user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id      Int
+  activity     activity @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  user         user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
   @@index([activity_id])
@@ -93,8 +92,8 @@ model streak {
   created_time DateTime @default(now())
   updated_time DateTime @updatedAt
   date         DateTime @db.Date
-  user         user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id      Int
+  user         user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, date])
   @@index([user_id])

@@ -6,6 +6,23 @@ import { GeistSans } from 'geist/font/sans'
 import type { Metadata } from 'next'
 import './globals.css'
 import { AppProvider } from '@/contexts/app-context'
+import { connectToDatabase } from '@/lib/db'
+
+// Verify database connection on server startup
+if (process.env.NODE_ENV === 'production') {
+  // In production, connect to database on startup
+  connectToDatabase()
+    .then(connected => {
+      if (connected) {
+        console.log('Database connection verified on startup')
+      } else {
+        console.error('Failed to connect to database on startup')
+      }
+    })
+    .catch(error => {
+      console.error('Error connecting to database on startup:', error)
+    })
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nexevo.io"),

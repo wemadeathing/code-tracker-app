@@ -1,127 +1,140 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 
 // Fix for Prisma client hot reloading in development
-// This ensures we don't create multiple instances during development
 declare global {
-  // This should be `var` instead of `let` or `const` to work in Next.js environment
   var prisma: PrismaClient | undefined
 }
 
-// Production-optimized Prisma client configuration
-const prismaClientSingleton = () => {
-  return new PrismaClient({
+// Create a new PrismaClient instance with proper connection management
+function createPrismaClient() {
+  // Add connection pooling configuration to avoid prepared statement issues
+  const connectionOptions: Prisma.PrismaClientOptions = {
     datasources: {
       db: {
         url: process.env.DATABASE_URL
       }
     },
-    // Production-optimized logging
-    log: process.env.NODE_ENV === 'production' 
-      ? ['error'] // Only log errors in production
-      : ['query', 'error', 'warn']
-  })
-}
+    log: process.env.NODE_ENV === 'development' 
+      ? ['error', 'warn'] 
+      : ['error']
+  }
 
-// Use global variable to keep Prisma client instance across hot reloads
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
-export const db = globalForPrisma.prisma ?? prismaClientSingleton()
-
-// Set the global prisma in development only
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db
-}
-
-// Export a function to explicitly connect when needed
-export async function connectToDatabase() {
   try {
-    // Log the environment and connection URL (without sensitive data)
-    const dbUrl = process.env.DATABASE_URL || 'not set'
-    const directUrl = process.env.DIRECT_URL || 'not set'
+    const client = new PrismaClient(connectionOptions)
     
-    console.log('Database connection attempt:', {
-      environment: process.env.NODE_ENV,
-      dbUrlProvided: !!process.env.DATABASE_URL,
-      directUrlProvided: !!process.env.DIRECT_URL,
-      dbUrlProtocol: dbUrl.split('://')[0],
-      directUrlProtocol: directUrl.split('://')[0],
-      pooling: process.env.DATABASE_URL?.includes('pool_timeout'),
-      ssl: process.env.DATABASE_URL?.includes('sslmode')
-    })
-
-    // Connection with retry logic
-    let retries = 3
-    let lastError = null
-
-    while (retries > 0) {
-      try {
-        await db.$connect()
-        console.log('Successfully connected to database')
-        return true
-      } catch (error) {
-        lastError = error
-        retries--
-        if (retries > 0) {
-          console.log(`Retrying database connection, ${retries} attempts remaining`)
-          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second between retries
-        }
-      }
-    }
-
-    // If we get here, all retries failed
-    throw lastError
-  } catch (e: any) {
-    // Enhanced error logging for production debugging
-    console.error('Database connection error details:', {
-      message: e.message,
-      code: e.code,
-      clientVersion: e.clientVersion,
-      meta: e.meta,
-      // Include connection details in error (sanitized)
-      connectionInfo: {
-        hasDbUrl: !!process.env.DATABASE_URL,
-        hasDirectUrl: !!process.env.DIRECT_URL,
-        environment: process.env.NODE_ENV,
-        // Add connection parameter checks
-        hasPooling: process.env.DATABASE_URL?.includes('pool_timeout') || false,
-        sslMode: process.env.DATABASE_URL?.includes('sslmode=') 
-          ? process.env.DATABASE_URL.split('sslmode=')[1].split('&')[0] 
-          : 'not specified'
-      }
-    })
+    // Test connection immediately
+    client.$connect()
+      .then(() => console.log('Prisma client connected successfully'))
+      .catch(e => {
+        console.error('Initial Prisma connection failed:', e)
+        // Don't throw here to allow fallback handling
+      })
     
-    // In production, log the error but don't throw
+    return client
+  } catch (err) {
+    console.error('Failed to initialize Prisma client:', err)
+    // In production, return a dummy client that logs errors
     if (process.env.NODE_ENV === 'production') {
-      console.warn('Continuing without confirmed database connection')
-      return true
+      return createFallbackClient()
     }
-    
-    throw e
+    // In development, rethrow to help debugging
+    throw err
   }
 }
 
-// Disconnect on app shutdown
+// Fallback client for production that prevents crashes
+function createFallbackClient() {
+  const handler = {
+    get: function(target: any, prop: string) {
+      // Handle special methods
+      if (prop === '$connect' || prop === '$disconnect') {
+        return () => Promise.resolve()
+      }
+      
+      // For models like user, course, etc.
+      return new Proxy({}, {
+        get: function(_, method) {
+          // For methods like findUnique, create, etc.
+          return () => {
+            console.error(`Database error: Attempted to use ${prop}.${String(method)} but database connection failed`)
+            return Promise.reject(new Error(`Database connection unavailable`))
+          }
+        }
+      })
+    }
+  }
+  
+  return new Proxy({}, handler) as unknown as PrismaClient
+}
+
+// Use global variable for development, create new instance for production
+export const db = globalThis.prisma || createPrismaClient()
+
+// Set global for development hot reloading
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prisma = db
+}
+
+// Clean disconnection on app termination
 process.on('beforeExit', async () => {
-  await db.$disconnect()
+  await db.$disconnect().catch(() => {})
 })
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection at Promise:', {
-    reason: reason instanceof Error ? {
-      message: reason.message,
-      stack: process.env.NODE_ENV === 'development' ? reason.stack : undefined,
-      // Add connection state
-      connectionState: {
-        hasDbUrl: !!process.env.DATABASE_URL,
-        hasDirectUrl: !!process.env.DIRECT_URL,
-        environment: process.env.NODE_ENV,
-        hasPooling: process.env.DATABASE_URL?.includes('pool_timeout') || false,
-        hasSsl: process.env.DATABASE_URL?.includes('sslmode') || false
-      }
-    } : reason
-  })
-  // Don't exit in production
-  if (process.env.NODE_ENV !== 'production') {
-    process.exit(1)
+// Safer connection checker function
+export async function checkDbConnection(): Promise<boolean> {
+  try {
+    // Use a simple raw query to test connection
+    await db.$queryRaw`SELECT 1 as connected`
+    return true
+  } catch (error) {
+    console.error('Database connection check failed:', error)
+    return false
   }
-})
+}
+
+// Connection function with retries
+export async function connectToDatabase(maxRetries = 3): Promise<boolean> {
+  let retries = maxRetries
+  
+  while (retries > 0) {
+    try {
+      await db.$connect()
+      console.log('Database connected successfully')
+      
+      // Test with a simple query
+      const result = await db.$queryRaw`SELECT 1 as connected`
+      console.log('Query test successful:', result)
+      
+      return true
+    } catch (error) {
+      console.error(`Database connection attempt failed (${maxRetries - retries + 1}/${maxRetries}):`, error)
+      retries--
+      
+      if (retries > 0) {
+        const delay = 1000 * (maxRetries - retries) // Increasing delay
+        console.log(`Retrying in ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+  
+  console.error('All database connection attempts failed')
+  return false
+}
+
+// Add a direct method to check the schema
+export async function validateUserSchema(): Promise<boolean> {
+  try {
+    // Check if the user table has the expected structure
+    const userFields = await db.$queryRaw`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'user'
+    `
+    console.log('User schema validation:', userFields)
+    return true
+  } catch (error) {
+    console.error('User schema validation failed:', error)
+    return false
+  }
+}
