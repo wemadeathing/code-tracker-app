@@ -8,21 +8,30 @@ import { formatTimeFromSeconds } from "./utils"
 import { Prisma } from "@prisma/client"
 
 // Helper function to get the user ID
-const getUserId = async () => {
+const getUserId = async (): Promise<number> => {
   try {
+    // Get user session
     const session = await auth()
     const userId = session?.userId
     
     if (!userId) {
-      throw new Error("You must be signed in to perform this action")
+      console.error('User not authenticated')
+      // Always throw in both dev and prod, but with different messages
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error("Authentication required")
+      } else {
+        throw new Error("You must be signed in to perform this action")
+      }
     }
     
     try {
+      // Find the user in our database
       const dbUser = await db.user.findUnique({
         where: { user_id: userId }
       })
       
       if (!dbUser) {
+        console.error('User not found in database:', userId)
         throw new Error("User not found in database")
       }
       
@@ -33,10 +42,14 @@ const getUserId = async () => {
     }
   } catch (error: any) {
     console.error('Auth error in getUserId:', error)
+    
+    // In development, be more specific about errors
     if (error.message === "You must be signed in to perform this action") {
       throw error
     }
-    throw new Error("Authentication failed")
+    
+    // Default error
+    throw new Error("Authentication failed: " + (error.message || "Unknown error"))
   }
 }
 
@@ -54,149 +67,213 @@ export async function getCourses() {
       return courses
     } catch (error: any) {
       console.error('Database error in getCourses:', error)
+      // In production, return empty array rather than error
+      if (process.env.NODE_ENV === 'production') {
+        return []
+      }
       throw new Error("Failed to fetch courses")
     }
   } catch (error: any) {
     console.error('Error in getCourses:', error)
+    // In production, return empty array rather than error
+    if (process.env.NODE_ENV === 'production') {
+      return []
+    }
     throw error
   }
 }
 
 export async function addCourse({ title, description, color = "blue" }: { title: string, description?: string, color?: string }) {
-  const user_id = await getUserId()
-  
-  const course = await db.course.create({
-    data: {
-      title,
-      description,
-      color,
-      user_id
+  try {
+    const user_id = await getUserId()
+    
+    const course = await db.course.create({
+      data: {
+        title,
+        description,
+        color,
+        user_id
+      }
+    })
+    
+    revalidatePath('/dashboard/courses')
+    revalidatePath('/dashboard') // Also revalidate main dashboard
+    return course
+  } catch (error) {
+    console.error("Error adding course:", error)
+    if (process.env.NODE_ENV === 'production') {
+      return null
     }
-  })
-  
-  revalidatePath('/dashboard/courses')
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  return course
+    throw error
+  }
 }
 
 export async function updateCourse(id: number, { title, description, color }: { title?: string, description?: string, color?: string }) {
-  const user_id = await getUserId()
-  
-  const course = await db.course.update({
-    where: { 
-      id,
-      user_id
-    },
-    data: {
-      title,
-      description,
-      color
+  try {
+    const user_id = await getUserId()
+    
+    const course = await db.course.update({
+      where: { 
+        id,
+        user_id
+      },
+      data: {
+        title,
+        description,
+        color
+      }
+    })
+    
+    revalidatePath('/dashboard/courses')
+    revalidatePath('/dashboard') // Also revalidate main dashboard
+    return course
+  } catch (error) {
+    console.error("Error updating course:", error)
+    if (process.env.NODE_ENV === 'production') {
+      return null
     }
-  })
-  
-  revalidatePath('/dashboard/courses')
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  return course
+    throw error
+  }
 }
 
 export async function deleteCourse(id: number) {
-  const user_id = await getUserId()
-  
-  await db.course.delete({
-    where: { 
-      id,
-      user_id
+  try {
+    const user_id = await getUserId()
+    
+    await db.course.delete({
+      where: { 
+        id,
+        user_id
+      }
+    })
+    
+    revalidatePath('/dashboard/courses')
+    revalidatePath('/dashboard') // Also revalidate main dashboard
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting course:", error)
+    if (process.env.NODE_ENV === 'production') {
+      return { success: false, error: "Failed to delete course" }
     }
-  })
-  
-  revalidatePath('/dashboard/courses')
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  return { success: true }
+    throw error
+  }
 }
 
 // Project operations
 export async function getProjects() {
-  const user_id = await getUserId()
-  
-  const projects = await db.project.findMany({
-    where: { user_id },
-    orderBy: { created_time: 'desc' },
-    include: {
-      activities: {
-        include: {
-          sessions: true
+  try {
+    const user_id = await getUserId()
+    
+    const projects = await db.project.findMany({
+      where: { user_id },
+      orderBy: { created_time: 'desc' },
+      include: {
+        activities: {
+          include: {
+            sessions: true
+          }
         }
       }
-    }
-  })
-  
-  // Calculate stats for each project
-  return projects.map((project: any) => {
-    const total_time = project.activities.reduce((acc: number, activity: any) => {
-      const activity_time = activity.sessions.reduce((total: number, session: any) => {
-        return total + session.duration
-      }, 0)
-      return acc + activity_time
-    }, 0)
+    })
     
-    return {
-      ...project,
-      total_activities: project.activities.length,
-      total_time: formatTimeFromSeconds(total_time)
+    // Calculate stats for each project
+    return projects.map((project: any) => {
+      const total_time = project.activities.reduce((acc: number, activity: any) => {
+        const activity_time = activity.sessions.reduce((total: number, session: any) => {
+          return total + session.duration
+        }, 0)
+        return acc + activity_time
+      }, 0)
+      
+      return {
+        ...project,
+        total_activities: project.activities.length,
+        total_time: formatTimeFromSeconds(total_time)
+      }
+    })
+  } catch (error) {
+    console.error("Error getting projects:", error)
+    if (process.env.NODE_ENV === 'production') {
+      return []
     }
-  })
+    throw error
+  }
 }
 
 export async function addProject({ title, description, color = "green" }: { title: string, description?: string, color?: string }) {
-  const user_id = await getUserId()
-  
-  const project = await db.project.create({
-    data: {
-      title,
-      description,
-      color,
-      user_id
+  try {
+    const userId = await getUserId()
+    
+    const project = await db.project.create({
+      data: {
+        title,
+        description,
+        color,
+        user_id: userId
+      }
+    })
+    
+    revalidatePath('/dashboard/projects')
+    revalidatePath('/dashboard') // Also revalidate main dashboard
+    return project
+  } catch (error) {
+    console.error("Error adding project:", error)
+    if (process.env.NODE_ENV === 'production') {
+      return null
     }
-  })
-  
-  revalidatePath('/dashboard/projects')
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  return project
+    throw error
+  }
 }
 
 export async function updateProject(id: number, { title, description, color }: { title?: string, description?: string, color?: string }) {
-  const user_id = await getUserId()
-  
-  const project = await db.project.update({
-    where: { 
-      id,
-      user_id
-    },
-    data: {
-      title,
-      description,
-      color
+  try {
+    const userId = await getUserId()
+    
+    const project = await db.project.update({
+      where: { 
+        id,
+        user_id: userId
+      },
+      data: {
+        title,
+        description,
+        color
+      }
+    })
+    
+    revalidatePath('/dashboard/projects')
+    revalidatePath('/dashboard') // Also revalidate main dashboard
+    return project
+  } catch (error) {
+    console.error("Error updating project:", error)
+    if (process.env.NODE_ENV === 'production') {
+      return null
     }
-  })
-  
-  revalidatePath('/dashboard/projects')
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  return project
+    throw error
+  }
 }
 
 export async function deleteProject(id: number) {
-  const user_id = await getUserId()
-  
-  await db.project.delete({
-    where: { 
-      id,
-      user_id
+  try {
+    const userId = await getUserId()
+    
+    await db.project.delete({
+      where: { 
+        id,
+        user_id: userId
+      }
+    })
+    
+    revalidatePath('/dashboard/projects')
+    revalidatePath('/dashboard') // Also revalidate main dashboard
+    return { success: true }
+  } catch (error) {
+    console.error("Error deleting project:", error)
+    if (process.env.NODE_ENV === 'production') {
+      return { success: false, error: "Failed to delete project" }
     }
-  })
-  
-  revalidatePath('/dashboard/projects')
-  revalidatePath('/dashboard') // Also revalidate main dashboard
-  return { success: true }
+    throw error
+  }
 }
 
 // Activity operations

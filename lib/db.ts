@@ -1,50 +1,39 @@
 import { PrismaClient } from '@prisma/client'
 
+// Fix for Prisma client hot reloading in development
+// This ensures we don't create multiple instances during development
 declare global {
+  // This should be `var` instead of `let` or `const` to work in Next.js environment
   var prisma: PrismaClient | undefined
 }
 
-// Keep track of connection attempts to prevent infinite retry loops
-let connectionAttempts = 0
-const MAX_CONNECTION_ATTEMPTS = 3
-
+// Simple prisma client singleton with minimal configuration to reduce issues
 const prismaClientSingleton = () => {
-  return new PrismaClient({
-    log: ['error'],
-    errorFormat: 'pretty',
-  })
+  return new PrismaClient()
 }
 
-// Check if we already have a Prisma instance in global scope
-const prisma = globalThis.prisma ?? prismaClientSingleton()
+// Use global variable to keep Prisma client instance across hot reloads
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined }
+export const db = globalForPrisma.prisma ?? prismaClientSingleton()
 
-export { prisma as db }
-
-// Only do this in development
+// Set the global prisma in development only
 if (process.env.NODE_ENV !== 'production') {
-  globalThis.prisma = prisma
+  globalForPrisma.prisma = db
 }
 
 // Export a function to explicitly connect when needed
 export async function connectToDatabase() {
-  if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
-    console.warn('Maximum database connection attempts reached, continuing without confirmed connection')
-    return true // Return true to allow the app to continue
-  }
-  
-  connectionAttempts++
-  
   try {
-    await prisma.$connect()
+    // Basic connection check
+    await db.$queryRaw`SELECT 1`
     console.log('Successfully connected to database')
-    connectionAttempts = 0 // Reset counter on success
     return true
   } catch (e: any) {
     console.error('Failed to connect to database:', e.message)
     
-    // In production, don't throw the error - just log it and continue
+    // In production, log the error but don't throw
     if (process.env.NODE_ENV === 'production') {
-      console.warn('Continuing without database connection in production')
+      console.warn('Continuing without confirmed database connection')
       return true // Return true to allow the app to continue
     }
     
@@ -52,9 +41,16 @@ export async function connectToDatabase() {
   }
 }
 
-// Graceful shutdown
-if (process.env.NODE_ENV !== 'production') {
-  process.on('beforeExit', async () => {
-    await prisma.$disconnect()
-  })
-}
+// Try to disconnect when the app is shutting down
+process.on('beforeExit', async () => {
+  await db.$disconnect()
+})
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection at Promise', reason)
+  // Don't exit in production
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1)
+  }
+})
