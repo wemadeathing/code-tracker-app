@@ -159,8 +159,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(true)
         console.log("User is signed in, fetching data from server...")
         
-        // Use Promise.allSettled to fetch all data and handle errors individually
-        const [coursesResult, projectsResult, activitiesResult] = await Promise.allSettled([
+        // Add a small delay to ensure auth is fully initialized
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Fetch courses and projects first
+        console.log("Fetching courses and projects...")
+        const [coursesResult, projectsResult] = await Promise.allSettled([
           getCourses().catch(err => {
             console.error('Error fetching courses:', err)
             return []
@@ -168,75 +172,101 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           getProjects().catch(err => {
             console.error('Error fetching projects:', err)
             return []
-          }),
-          getActivities().catch(err => {
-            console.error('Error fetching activities:', err)
-            return []
           })
         ])
         
-        // Handle each result individually
+        // Handle courses and projects results
+        let coursesData: CourseType[] = []
+        let projectsData: ProjectType[] = []
+        
         if (coursesResult.status === 'fulfilled' && coursesResult.value) {
           console.log(`Loaded ${coursesResult.value.length} courses`)
-          setCourses(coursesResult.value)
+          coursesData = coursesResult.value
+          setCourses(coursesData)
+        } else if (coursesResult.status === 'rejected') {
+          console.error('Courses fetch rejected:', coursesResult.reason)
         }
         
         if (projectsResult.status === 'fulfilled' && projectsResult.value) {
           console.log(`Loaded ${projectsResult.value.length} projects`)
-          setProjects(projectsResult.value)
+          projectsData = projectsResult.value
+          setProjects(projectsData)
+        } else if (projectsResult.status === 'rejected') {
+          console.error('Projects fetch rejected:', projectsResult.reason)
         }
         
-        if (activitiesResult.status === 'fulfilled' && activitiesResult.value) {
-          console.log(`Loaded ${activitiesResult.value.length} activities`)
-          // Ensure the activity data is correctly mapped to ActivityType
-          const typedActivities = activitiesResult.value.map(activity => {
-            const parentId = activity.course_id ?? activity.project_id;
-            if (parentId === null || parentId === undefined) {
-              console.error("Activity is missing parent ID:", activity);
-              return null;
-            }
+        // Wait for state updates to complete
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Fetch activities after courses and projects have been loaded
+        console.log("Fetching activities...")
+        try {
+          const activitiesResult = await getActivities()
+          
+          if (activitiesResult) {
+            console.log(`Loaded ${activitiesResult.length} activities`)
+            
+            // Log the current state of courses and projects for debugging
+            console.log('Current courses state:', coursesData)
+            console.log('Current projects state:', projectsData)
+            
+            // Ensure the activity data is correctly mapped to ActivityType
+            const typedActivities = activitiesResult.map(activity => {
+              const parentId = activity.course_id ?? activity.project_id;
+              if (parentId === null || parentId === undefined) {
+                console.error("Activity is missing parent ID:", activity);
+                return null;
+              }
 
-            const parentType = activity.course_id ? 'course' : 'project';
-            const parent = parentType === 'course'
-              ? courses.find(c => c.id === parentId)
-              : projects.find(p => p.id === parentId);
+              const parentType = activity.course_id ? 'course' : 'project';
+              
+              // Use the local variables instead of the state
+              const parent = parentType === 'course'
+                ? coursesData.find(c => c.id === parentId)
+                : projectsData.find(p => p.id === parentId);
 
-            if (!parent) {
-              console.error(`Parent not found for activity: ${activity.id}, parentType: ${parentType}, parentId: ${parentId}`);
-              return null;
-            }
+              if (!parent) {
+                console.error(`Parent not found for activity: ${activity.id}, parentType: ${parentType}, parentId: ${parentId}`);
+                console.error('Available courses:', coursesData.map(c => ({ id: c.id, title: c.title })));
+                console.error('Available projects:', projectsData.map(p => ({ id: p.id, title: p.title })));
+                return null;
+              }
 
-            // Map raw sessions to the structure defined in ActivityType
-            const mappedSessions = (activity.sessions || []).map(session => ({
-              id: session.id,
-              duration: session.duration,
-              // Assuming raw session has start_time which should be used as date
-              date: new Date(session.start_time), 
-              notes: session.notes,
-            }));
+              // Map raw sessions to the structure defined in ActivityType
+              const mappedSessions = (activity.sessions || []).map(session => ({
+                id: session.id,
+                duration: session.duration,
+                // Assuming raw session has start_time which should be used as date
+                date: new Date(session.start_time), 
+                notes: session.notes,
+              }));
 
-            // Calculate total seconds from mapped sessions
-            const totalSeconds = mappedSessions.reduce((sum, session) => sum + session.duration, 0);
+              // Calculate total seconds from mapped sessions
+              const totalSeconds = mappedSessions.reduce((sum, session) => sum + session.duration, 0);
 
-            // Construct the final ActivityType object explicitly
-            const finalActivity: ActivityType = {
-              id: activity.id,
-              title: activity.title,
-              description: activity.description,
-              parentType: parentType,
-              parentId: parentId,
-              parentTitle: parent.title,
-              parentColor: parent.color,
-              color: activity.color ?? undefined, // Convert null to undefined
-              sessions: mappedSessions,
-              totalSeconds: totalSeconds,
-              totalTime: formatTimeFromSeconds(totalSeconds), // Use the helper function
-            };
+              // Construct the final ActivityType object explicitly
+              const finalActivity: ActivityType = {
+                id: activity.id,
+                title: activity.title,
+                description: activity.description,
+                parentType: parentType,
+                parentId: parentId,
+                parentTitle: parent.title,
+                parentColor: parent.color,
+                color: activity.color ?? undefined, // Convert null to undefined
+                sessions: mappedSessions,
+                totalSeconds: totalSeconds,
+                totalTime: formatTimeFromSeconds(totalSeconds), // Use the helper function
+              };
 
-            return finalActivity;
-          }).filter((activity): activity is ActivityType => activity !== null); // Filter out nulls
+              return finalActivity;
+            }).filter((activity): activity is ActivityType => activity !== null); // Filter out nulls
 
-          setActivities(typedActivities)
+            console.log(`Mapped ${typedActivities.length} activities successfully`)
+            setActivities(typedActivities)
+          }
+        } catch (activitiesError) {
+          console.error('Error fetching activities:', activitiesError)
         }
       } catch (error) {
         console.error('Error in data fetching:', error)
@@ -400,24 +430,32 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       })
       
       if (newActivity) {
+        // Find the parent (course or project) to get its title and color
         const parent = activity.parentType === 'course' 
           ? courses.find(c => c.id === activity.parentId)
           : projects.find(p => p.id === activity.parentId)
         
-        // Convert from backend response to our frontend type
-        const activityWithParent = {
-          ...newActivity,
-          // Add these frontend-specific fields 
+        if (!parent) {
+          console.error(`Parent not found for new activity: ${activity.parentType} with ID ${activity.parentId}`)
+          return { success: false, error: 'Parent not found' }
+        }
+        
+        // Create a properly formatted ActivityType object
+        const activityWithParent: ActivityType = {
+          id: newActivity.id,
+          title: newActivity.title,
+          description: newActivity.description,
           parentType: activity.parentType,
           parentId: activity.parentId,
-          parentTitle: parent?.title || '',
-          parentColor: parent?.color || 'purple',
-          color: newActivity.color || parent?.color || 'purple',
+          parentTitle: parent.title,
+          parentColor: parent.color,
+          color: newActivity.color || parent.color,
+          sessions: [],
           totalSeconds: 0,
-          totalTime: '0h 0m',
-          sessions: []
-        } as ActivityType
+          totalTime: '0h 0m'
+        }
         
+        // Update the activities state with the new activity
         setActivities(prevActivities => [...prevActivities, activityWithParent])
         return { success: true }
       }
@@ -497,30 +535,40 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       )
       
       if (session) {
-        setActivities(prevActivities => 
-          prevActivities.map(activity => {
-            if (activity.id === activityId) {
-              const currentSessions = activity.sessions || []
-              const totalSeconds = (activity.totalSeconds || 0) + seconds
-              
-              return {
-                ...activity,
-                totalSeconds,
-                totalTime: formatTimeFromSeconds(totalSeconds),
-                sessions: [
-                  ...currentSessions,
-                  {
-                    id: session.id,
-                    duration: seconds,
-                    date: date || new Date(),
-                    notes
-                  }
-                ]
-              }
-            }
-            return activity
-          })
-        )
+        // Find the activity to update
+        const activityIndex = activities.findIndex(a => a.id === activityId)
+        if (activityIndex === -1) {
+          console.error(`Activity with ID ${activityId} not found in state`)
+          return
+        }
+        
+        const activity = activities[activityIndex]
+        
+        // Create a new session object
+        const newSession = {
+          id: session.id,
+          duration: seconds,
+          date: date || new Date(),
+          notes
+        }
+        
+        // Calculate new total seconds
+        const newTotalSeconds = (activity.totalSeconds || 0) + seconds
+        
+        // Create updated activity with new session and total time
+        const updatedActivity: ActivityType = {
+          ...activity,
+          sessions: [newSession, ...(activity.sessions || [])],
+          totalSeconds: newTotalSeconds,
+          totalTime: formatTimeFromSeconds(newTotalSeconds)
+        }
+        
+        // Update the activities state
+        setActivities(prevActivities => {
+          const newActivities = [...prevActivities]
+          newActivities[activityIndex] = updatedActivity
+          return newActivities
+        })
       }
     } catch (error) {
       console.error('Error adding time to activity:', error)

@@ -11,15 +11,32 @@ import { safeDatabaseOperation } from './db-utils'
 // Helper function to get the user ID
 const getUserId = async (): Promise<number> => {
   try {
-    // Get user session
-    const session = await auth()
+    // Get user session with retry
+    let session = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (!session && retryCount < maxRetries) {
+      try {
+        session = await auth();
+        if (!session) {
+          console.log(`Auth attempt ${retryCount + 1} failed, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+          retryCount++;
+        }
+      } catch (authError) {
+        console.error(`Auth error on attempt ${retryCount + 1}:`, authError);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retryCount++;
+      }
+    }
     
     // This is important - in the latest Clerk versions, session might 
     // be an empty object rather than null when not authenticated
     const userId = session?.userId || null
     
     if (!userId) {
-      console.error('User not authenticated - no userId in session:', session)
+      console.error('User not authenticated after retries - no userId in session:', session)
       throw new Error("You must be signed in to perform this action")
     }
     
@@ -50,19 +67,18 @@ const getUserId = async (): Promise<number> => {
           return initializedUser.id
         } catch (initError) {
           console.error('Error initializing user:', initError)
-          throw new Error("Failed to initialize user")
+          throw new Error("Failed to initialize user in database")
         }
       }
       
-      console.log('User found in database, id:', dbUser.id)
       return dbUser.id
-    } catch (error: any) {
-      console.error('Database error in getUserId:', error)
-      throw new Error(`Failed to fetch user data: ${error.message}`)
+    } catch (dbError) {
+      console.error('Database error in getUserId:', dbError)
+      throw new Error("Database error while fetching user")
     }
-  } catch (error: any) {
-    console.error('Auth error in getUserId:', error)
-    throw new Error(`Authentication failed: ${error.message}`)
+  } catch (error) {
+    console.error('Authentication error in getUserId:', error)
+    throw new Error("Authentication failed: You must be signed in to perform this action")
   }
 }
 

@@ -3,6 +3,7 @@ import { PrismaClient, Prisma } from '@prisma/client'
 // Fix for Prisma client hot reloading in development
 declare global {
   var prisma: PrismaClient | undefined
+  var prismaConnectionCount: number | undefined
 }
 
 // Create a new PrismaClient instance with proper connection management
@@ -73,6 +74,8 @@ export const db = globalThis.prisma || createPrismaClient()
 // Set global for development hot reloading
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prisma = db
+  // Initialize connection count
+  globalThis.prismaConnectionCount = globalThis.prismaConnectionCount || 0
 }
 
 // Clean disconnection on app termination
@@ -98,8 +101,21 @@ export async function connectToDatabase(maxRetries = 3): Promise<boolean> {
   
   while (retries > 0) {
     try {
+      // Check if we need to reset the connection due to too many connections
+      if (process.env.NODE_ENV !== 'production' && globalThis.prismaConnectionCount && globalThis.prismaConnectionCount > 10) {
+        console.log('Too many connections detected, resetting Prisma client...')
+        await db.$disconnect().catch(() => {})
+        globalThis.prisma = createPrismaClient()
+        globalThis.prismaConnectionCount = 0
+      }
+      
       await db.$connect()
       console.log('Database connected successfully')
+      
+      // Increment connection count in development
+      if (process.env.NODE_ENV !== 'production' && globalThis.prismaConnectionCount !== undefined) {
+        globalThis.prismaConnectionCount++
+      }
       
       // Test with a simple query
       const result = await db.$queryRaw`SELECT 1 as connected`
@@ -108,6 +124,15 @@ export async function connectToDatabase(maxRetries = 3): Promise<boolean> {
       return true
     } catch (error) {
       console.error(`Database connection attempt failed (${maxRetries - retries + 1}/${maxRetries}):`, error)
+      
+      // Check for prepared statement error
+      if (error instanceof Error && error.message.includes('prepared statement') && error.message.includes('already exists')) {
+        console.log('Prepared statement error detected, resetting Prisma client...')
+        await db.$disconnect().catch(() => {})
+        globalThis.prisma = createPrismaClient()
+        globalThis.prismaConnectionCount = 0
+      }
+      
       retries--
       
       if (retries > 0) {
