@@ -48,68 +48,7 @@ export async function initUser() {
         }
       })
       
-      console.log("Successfully created user in database, now creating demo data...")
-      
-      // Create initial demo data in a transaction to ensure consistency
-      await db.$transaction(async (tx) => {
-        // Create some initial demo courses
-        const courses = [
-          {
-            title: "Learn Python",
-            description: "A comprehensive course covering Python basics to advanced concepts",
-            color: "green",
-            user_id: newUser.id
-          },
-          {
-            title: "Advanced JavaScript",
-            description: "Deep dive into modern JavaScript and advanced programming patterns",
-            color: "yellow",
-            user_id: newUser.id
-          },
-          {
-            title: "Web Development Bootcamp",
-            description: "Full-stack web development course covering frontend and backend technologies",
-            color: "blue",
-            user_id: newUser.id
-          }
-        ]
-        
-        // Create some initial demo projects
-        const projects = [
-          {
-            title: "Personal Portfolio",
-            description: "Building a responsive portfolio website using React and Tailwind CSS",
-            color: "blue",
-            user_id: newUser.id
-          },
-          {
-            title: "E-commerce App",
-            description: "Full-stack e-commerce application with Next.js and Supabase",
-            color: "purple",
-            user_id: newUser.id
-          },
-          {
-            title: "Mobile Weather App",
-            description: "React Native weather application with API integration",
-            color: "teal",
-            user_id: newUser.id
-          }
-        ]
-        
-        // Create all courses in a single batch
-        await tx.course.createMany({
-          data: courses,
-          skipDuplicates: true
-        })
-        
-        // Create all projects in a single batch
-        await tx.project.createMany({
-          data: projects,
-          skipDuplicates: true
-        })
-      })
-      
-      console.log("User initialization complete with demo data")
+      console.log("Successfully created user in database")
       return newUser
     } catch (dbError: any) {
       console.error("Database error in initUser:", {
